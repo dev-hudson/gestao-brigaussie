@@ -41,7 +41,7 @@ async function sincronizarNuvem() {
     if(!emailAuth) return alert("Insira um e-mail para salvar na nuvem.");
     const dados = { configuracoes, ingredientes, embalagens, receitas, ordemCategorias, ordemManual };
     try {
-        const res = await fetch('http://localhost:8000/api/sync', {
+        const res = await fetch('https://brigaussie-api.onrender.com/api/sync', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ email: emailAuth, dados })
