@@ -1,0 +1,427 @@
+/* PALETA DE CORES (Regra 60/30/10)
+   60% - Azul Marinho Clareado (Fundo principal e estrutura) = #4B6584
+   30% - Areia/Creme (Cartões e áreas de leitura) = #F7F1E3
+   10% - Cobre/Pêssego (Botões e destaques) = #D18B63
+*/
+
+:root {
+    --cor-60: #4B6584; 
+    --cor-60-escuro: #3d536d;
+    --cor-30: #F7F1E3;
+    --cor-30-escuro: #e6dfcd;
+    --cor-10: #D18B63;
+    --cor-10-hover: #b87550;
+    --texto-escuro: #2C3E50;
+    --texto-claro: #FFFFFF;
+    --sombra: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--cor-60);
+    color: var(--texto-escuro);
+}
+
+/* HEADER & NAVEGAÇÃO */
+header {
+    background-color: var(--cor-60-escuro);
+    padding: 20px;
+    box-shadow: var(--sombra);
+    text-align: center;
+}
+
+.logo {
+    color: var(--cor-30);
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+nav {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tab-btn {
+    background-color: transparent;
+    color: var(--cor-30);
+    border: 2px solid var(--cor-30);
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    background-color: rgba(247, 241, 227, 0.1);
+}
+
+.tab-btn.active {
+    background-color: var(--cor-30);
+    color: var(--cor-60-escuro);
+}
+
+/* ÁREA DE CONTEÚDO PRINCIPAL (Onde ficam os 30%) */
+main {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 20px;
+}
+
+.tab-content {
+    display: none;
+    background-color: var(--cor-30);
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: var(--sombra);
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.5s;
+}
+
+.header-section {
+    margin-bottom: 25px;
+    border-bottom: 2px solid var(--cor-30-escuro);
+    padding-bottom: 10px;
+}
+
+/* CARTÃO DE RECEITAS */
+.card-receita {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 5px solid var(--cor-60);
+    box-shadow: var(--sombra);
+}
+
+.card-receita-resumo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.info-principal h3 {
+    color: var(--cor-60);
+    margin-bottom: 5px;
+}
+
+.rendimento {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.valores-resumo {
+    display: flex;
+    gap: 20px;
+}
+
+.valor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.valor span {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.valor.destaque span {
+    color: var(--cor-10);
+    font-size: 1.4rem;
+}
+
+/* BOTÕES GERAIS */
+button {
+    font-family: inherit;
+}
+
+.btn-icon, .btn-editar, .btn-excluir {
+    background-color: var(--cor-10);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.3s;
+}
+
+.btn-icon:hover, .btn-editar:hover {
+    background-color: var(--cor-10-hover);
+}
+
+.btn-excluir {
+    background-color: #e74c3c;
+}
+.btn-excluir:hover {
+    background-color: #c0392b;
+}
+
+/* DETALHES DA RECEITA (Expandido) */
+.card-receita-detalhes {
+    margin-top: 20px;
+}
+
+.card-receita-detalhes hr {
+    border: none;
+    border-top: 1px dashed #ccc;
+    margin-bottom: 15px;
+}
+
+.card-receita-detalhes h4 {
+    color: var(--cor-60);
+    margin-bottom: 15px;
+}
+
+.lista-detalhes {
+    list-style: none;
+    margin-bottom: 15px;
+}
+
+.lista-detalhes li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.totais-detalhes {
+    background-color: var(--cor-30-escuro);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    text-align: right;
+}
+
+.acoes-edicao {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Animação suave para as abas */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsividade para celular */
+@media (max-width: 600px) {
+    .card-receita-resumo {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    nav {
+        flex-direction: column;
+    }
+    .tab-btn {
+        width: 100%;
+    }
+}
+
+/* FORMULÁRIOS */
+.form-container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: var(--sombra);
+    border-left: 5px solid var(--cor-60);
+}
+
+.input-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group label {
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: var(--cor-60);
+}
+
+.input-group input {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+    outline: none;
+}
+
+.input-group input:focus {
+    border-color: var(--cor-60);
+}
+
+.input-group small {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+.btn-salvar {
+    background-color: var(--cor-60);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+    transition: background 0.3s;
+    margin-top: 10px;
+}
+
+.btn-salvar:hover {
+    background-color: var(--cor-60-escuro);
+}
+
+/* LAYOUT EM LINHA PARA O ESTOQUE */
+.form-linha {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.form-linha .input-group {
+    flex: 1;
+    min-width: 150px;
+    margin-bottom: 0;
+}
+
+.form-linha .btn-salvar {
+    width: auto;
+    margin-top: 0;
+}
+
+/* PAINÉIS DE INFORMAÇÃO */
+.resultado-hora {
+    background-color: var(--cor-30-escuro);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    color: var(--cor-60-escuro);
+    margin-bottom: 20px;
+    border: 2px dashed var(--cor-60);
+}
+
+.divisor {
+    border: none;
+    border-top: 2px solid var(--cor-30-escuro);
+    margin: 25px 0;
+}
+
+/* TABELAS */
+.lista-itens {
+    overflow-x: auto;
+}
+
+.tabela-dados {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--sombra);
+}
+
+.tabela-dados th, .tabela-dados td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.tabela-dados th {
+    background-color: var(--cor-60);
+    color: white;
+}
+
+.tabela-dados tr:hover {
+    background-color: #f9f9f9;
+}
+
+.acoes-tabela button {
+    padding: 5px 10px;
+    font-size: 0.9rem;
+    margin-right: 5px;
+}
+
+/* ========================================== */
+/* NOVA ESTILIZAÇÃO DO RAIO-X E RODAPÉ DO CARD */
+/* ========================================== */
+
+.card-receita-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap-reverse; /* Se faltar espaço no celular, ajusta graciosamente */
+    gap: 15px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #ccc;
+}
+
+.raiox-unitario {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    text-align: right;
+    flex: 1;
+}
+
+.raiox-unitario strong {
+    color: var(--cor-60);
+}
+
+.raiox-unitario span {
+    color: #27ae60; /* Verde escuro profissional para lucro/mão de obra */
+    font-weight: bold;
+}
+
+.btn-icon-small {
+    background-color: #95a5a6;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-icon-small:hover {
+    background-color: #7f8c8d;
+}
+
+.btn-detalhes {
+    background-color: var(--cor-10);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.btn-detalhes:hover {
+    background-color: var(--cor-10-hover);
+}
