@@ -17,8 +17,12 @@ window.auth = auth; // <- Isso blinda o código contra qualquer erro de escopo
 
 // 3. FUNÇÕES DE AUTENTICAÇÃO
 async function criarContaEmail() {
-    const email = document.getElementById('auth-email').value;
-    const senha = document.getElementById('auth-senha').value;
+    const email = document.getElementById('auth-email').value.trim();
+    const senha = document.getElementById('auth-senha').value.trim();
+    if (!email || !senha) {
+        alert("Preencha o e-mail e a senha para cadastrar.");
+        return;
+    }
     try {
         await auth.createUserWithEmailAndPassword(email, senha);
     } catch (error) {
@@ -27,8 +31,12 @@ async function criarContaEmail() {
 }
 
 async function entrarComEmail() {
-    const email = document.getElementById('auth-email').value;
-    const senha = document.getElementById('auth-senha').value;
+    const email = document.getElementById('auth-email').value.trim();
+    const senha = document.getElementById('auth-senha').value.trim();
+    if (!email || !senha) {
+        alert("Preencha o e-mail e a senha para entrar.");
+        return;
+    }
     try {
         await auth.signInWithEmailAndPassword(email, senha);
     } catch (error) {
@@ -40,7 +48,7 @@ async function entrarComGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
         const authInstance = window.auth || firebase.auth();
-        // Usa redirecionamento em vez de pop-up para evitar o bug de fechar sozinho
+        // Redireciona a página inteira para o Google, eliminando o bug da janelinha que some
         await authInstance.signInWithRedirect(provider);
     } catch (error) {
         alert("Erro no login com Google: " + error.message);
