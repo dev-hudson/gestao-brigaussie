@@ -3,14 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Precificador - Confeitaria</title>
+    <title>Meu Precificador - Confeitaria SaaS</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Ícones do FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
-    <!-- Menu de Navegação Superior -->
+    <!-- Barra de Autenticação / Cloud -->
+    <div class="cloud-bar" id="cloud-bar">
+        <span><i class="fa-solid fa-cloud"></i> Salvar na Nuvem:</span>
+        <input type="email" id="user-email" placeholder="Seu e-mail de acesso" onchange="setAuthEmail(this.value)">
+        <button class="btn-icon-small" onclick="sincronizarNuvem()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync</button>
+        <button class="btn-icon-small" onclick="baixarNuvem()"><i class="fa-solid fa-cloud-arrow-down"></i> Puxar Dados</button>
+        <span id="cloud-status" style="font-size: 0.8rem; margin-left: 10px;"></span>
+    </div>
+
     <header>
         <div class="logo">
             <i class="fa-solid fa-cake-candles"></i>
@@ -19,174 +26,143 @@
         <nav>
             <button class="tab-btn active" onclick="openTab('receitas')">Minhas Receitas</button>
             <button class="tab-btn" onclick="openTab('nova-receita')">Nova Receita</button>
+            <button class="tab-btn" onclick="openTab('kits')">Kits / Encomendas</button>
             <button class="tab-btn" onclick="openTab('ingredientes')">Ingredientes</button>
             <button class="tab-btn" onclick="openTab('embalagens')">Embalagens</button>
             <button class="tab-btn" onclick="openTab('configuracoes')">Configurações</button>
         </nav>
     </header>
 
-    <!-- CONTEÚDO DAS ABAS -->
     <main>
-        
-        <!-- ABA: Minhas Receitas -->
+        <!-- ABA: Receitas -->
         <section id="receitas" class="tab-content active">
             <div class="header-section">
                 <h2>Minhas Receitas Salvas</h2>
-                <p>Gerencie seus doces, veja os custos e preços sugeridos.</p>
+                <p>Arraste os cartões (Drag & Drop) para reordenar sua lista.</p>
             </div>
-            
-            <!-- O JavaScript vai injetar os cartões de receitas reais dentro desta div -->
-            <div id="lista-receitas-salvas">
-                <!-- Vazio por enquanto -->
-            </div>
+            <div id="lista-receitas-salvas"></div>
         </section>
 
-        <!-- ABA: Nova Receita (A Calculadora Mágica) -->
+        <!-- ABA: Nova Receita -->
         <section id="nova-receita" class="tab-content">
             <div class="header-section">
-                <h2>Criar Receita ou Kit</h2>
-                <p>Monte seu produto e descubra o custo exato e a margem de lucro.</p>
+                <h2>Criar Receita Base</h2>
+                <p>Crie massas, recheios ou doces unitários.</p>
             </div>
-            
-            <!-- Passo 1: Dados Básicos -->
             <div class="form-container">
-                <h3 style="margin-bottom: 15px; color: var(--cor-60);">1. Informações Básicas</h3>
                 <div class="form-linha">
+                    <input type="hidden" id="rec-id-edit">
                     <div class="input-group" style="flex: 2;">
-                        <label>Nome do Produto (Ex: Tradicional 15g)</label>
-                        <input type="text" id="rec-nome">
+                        <label>Nome do Produto</label>
+                        <input type="text" id="rec-nome" oninput="calcularCustosDaReceita()">
                     </div>
                     <div class="input-group" style="flex: 2;">
-                        <label>Categoria (Pasta)</label>
-                        <input type="text" id="rec-categoria" placeholder="Ex: Cento, Venda de Rua...">
+                        <label>Categoria</label>
+                        <input type="text" id="rec-categoria" placeholder="Ex: Brigadeiros" oninput="calcularCustosDaReceita()">
                     </div>
                 </div>
-                <div class="form-linha" style="margin-top: 10px;">
+                <div class="form-linha">
                     <div class="input-group">
                         <label>Rendimento (Unidades)</label>
                         <input type="number" id="rec-rendimento" oninput="calcularCustosDaReceita()" value="1">
                     </div>
                     <div class="input-group">
-                        <label>Tempo de Preparo (Minutos)</label>
+                        <label>Tempo (Minutos)</label>
                         <input type="number" id="rec-tempo" oninput="calcularCustosDaReceita()" value="0">
                     </div>
                 </div>
             </div>
 
-            <!-- Passo 2: Adicionar Ingredientes e Embalagens -->
             <div class="form-container">
-                <h3 style="margin-bottom: 15px; color: var(--cor-60);">2. Composição (Regra de 3 Automática)</h3>
-                
-                <div class="form-linha" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h3>Montagem (Adicione e edite na linha)</h3>
+                <div class="form-linha">
                     <div class="input-group" style="flex: 2;">
-                        <label>Selecionar Item do Estoque</label>
-                        <select id="rec-item-select" style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; outline: none;"></select>
+                        <select id="rec-item-select"></select>
                     </div>
                     <div class="input-group">
-                        <label>Qtd. Usada (g, ml ou un)</label>
-                        <input type="number" id="rec-item-qtd">
+                        <input type="number" id="rec-item-qtd" placeholder="Qtd">
                     </div>
-                    <button class="btn-salvar" style="background-color: var(--cor-10);" onclick="adicionarItemNaReceita()"><i class="fa-solid fa-plus"></i> Add na Receita</button>
+                    <button class="btn-salvar" onclick="adicionarItemNaReceita()"><i class="fa-solid fa-plus"></i> Add</button>
                 </div>
-
-                <ul class="lista-detalhes" id="lista-composicao-receita" style="background: #fff; padding: 10px; border-radius: 8px;">
-                    <!-- Itens adicionados aparecerão aqui -->
-                    <p style="text-align: center; color: #999; font-size: 0.9rem;">Nenhum item adicionado à receita ainda.</p>
-                </ul>
+                <ul class="lista-detalhes" id="lista-composicao-receita"></ul>
             </div>
 
-            <!-- Passo 3: Precificação -->
-            <div class="form-container painel-precificacao" style="border-left-color: var(--cor-10);">
-                <h3 style="margin-bottom: 15px; color: var(--cor-10);">3. Custos e Lucratividade</h3>
-                
-                <div class="resumo-custos" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
-                    <p><strong>Custo Insumos:</strong> <span id="res-insumos">R$ 0,00</span></p>
-                    <p><strong>Sua Mão de Obra:</strong> <span id="res-maodeobra">R$ 0,00</span></p>
-                    <p><strong>Custos Fixos (Água/Luz/etc):</strong> <span id="res-custosfixos">R$ 0,00</span></p>
+            <div class="form-container painel-precificacao">
+                <div class="totais-detalhes">
+                    <p>Custo TOTAL: <strong id="res-custototal">R$ 0,00</strong></p>
+                    <p>Custo UNITÁRIO: <strong id="res-custounitario">R$ 0,00</strong></p>
                 </div>
-
-                <!-- TOTAIS COM ESPAÇO AJUSTADO PARA O RAIO-X -->
-                <div class="totais-detalhes" style="background-color: var(--cor-60); color: white; display: flex; justify-content: space-between; font-size: 1.2rem; flex-wrap: wrap; margin-bottom: 5px; padding: 15px; border-radius: 8px;">
-                    <p>Custo TOTAL (Massa inteira): <strong id="res-custototal">R$ 0,00</strong></p>
-                    <p>Custo UNITÁRIO: <strong id="res-custounitario" style="color: var(--cor-10);">R$ 0,00</strong></p>
-                </div>
-                
-                <!-- DIV DO RAIO-X INJETADA AQUI -->
-                <div id="res-raiox" style="font-size: 12px; color: #6c757d; text-align: right; margin-bottom: 20px; padding-right: 10px;">
-                    <!-- Preenchido pelo JS -->
-                </div>
-
-                <!-- Simulador de Lucro Duplo -->
                 <div class="form-linha">
-                    <div class="input-group" style="background: var(--cor-30-escuro); padding: 10px; border-radius: 8px;">
-                        <label style="color: var(--cor-60-escuro);"><i class="fa-solid fa-percent"></i> Margem Desejada (%)</label>
-                        <input type="number" id="rec-margem" oninput="calcularPorMargem()" placeholder="Ex: 30" style="font-weight: bold; text-align: center;">
+                    <div class="input-group">
+                        <label>Margem (%)</label>
+                        <input type="number" id="rec-margem" oninput="calcularPorMargem()">
                     </div>
-                    <div style="display: flex; align-items: center; font-weight: bold; color: #666;">OU</div>
-                    <div class="input-group" style="background: rgba(209, 139, 99, 0.2); padding: 10px; border-radius: 8px;">
-                        <label style="color: var(--cor-10);"><i class="fa-solid fa-money-bill-wave"></i> Preço de Venda (R$)</label>
-                        <input type="number" id="rec-preco-venda" oninput="calcularPorPreco()" placeholder="Ex: 3.50" step="0.01" style="font-weight: bold; text-align: center;">
+                    <div class="input-group">
+                        <label>Venda (R$)</label>
+                        <input type="number" id="rec-preco-venda" oninput="calcularPorPreco()">
                     </div>
                 </div>
-
-                <button class="btn-salvar" onclick="salvarReceitaCriada()" style="margin-top: 20px; font-size: 1.2rem; padding: 15px;"><i class="fa-solid fa-check"></i> Salvar Esta Receita</button>
+                <button class="btn-salvar" onclick="salvarReceitaCriada()">Salvar Receita</button>
             </div>
         </section>
 
-        <!-- ABA: Estoque de Ingredientes -->
-        <section id="ingredientes" class="tab-content">
+        <!-- ABA: Kits e Encomendas (NOVO) -->
+        <section id="kits" class="tab-content">
             <div class="header-section">
-                <h2>Estoque de Ingredientes</h2>
-                <p>Cadastre os pacotes fechados que você compra. O sistema fará a conversão depois.</p>
+                <h2>Montar Kit ou Cento</h2>
+                <p>Agrupe receitas prontas e embalagens para precificar caixas ou encomendas grandes.</p>
+            </div>
+            <!-- Mesma estrutura da receita, mas injetada pelo JS -->
+            <div class="form-container">
+                <div class="form-linha">
+                    <input type="hidden" id="kit-id-edit">
+                    <div class="input-group"><label>Nome do Kit</label><input type="text" id="kit-nome"></div>
+                    <div class="input-group"><label>Categoria</label><input type="text" id="kit-categoria" value="Kits"></div>
+                </div>
+                <div class="form-linha">
+                    <div class="input-group" style="flex: 2;"><select id="kit-item-select"></select></div>
+                    <div class="input-group"><input type="number" id="kit-item-qtd" placeholder="Qtd"></div>
+                    <button class="btn-salvar" onclick="adicionarItemNoKit()"><i class="fa-solid fa-plus"></i> Add</button>
+                </div>
+                <ul class="lista-detalhes" id="lista-composicao-kit"></ul>
+                <div class="totais-detalhes" style="margin-top: 15px;">
+                    <p>Custo do KIT: <strong id="kit-custototal">R$ 0,00</strong></p>
+                </div>
+                <div class="form-linha">
+                    <div class="input-group"><label>Margem (%)</label><input type="number" id="kit-margem" oninput="calcularMargemKit()"></div>
+                    <div class="input-group"><label>Venda (R$)</label><input type="number" id="kit-preco" oninput="calcularPrecoKit()"></div>
+                </div>
+                <button class="btn-salvar" onclick="salvarKit()">Salvar Kit</button>
+            </div>
+        </section>
+
+        <!-- ABA: Ingredientes -->
+        <section id="ingredientes" class="tab-content">
+            <div class="header-section" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2>Estoque Inteligente</h2>
+                    <p>Gerencie insumos divididos por categoria.</p>
+                </div>
+                <div class="input-group" style="margin: 0; min-width: 250px;">
+                    <input type="text" id="busca-estoque" placeholder="Buscar ingrediente..." oninput="atualizarTabelaIngredientes()" style="border-color: var(--cor-10);">
+                </div>
             </div>
             
             <div class="form-container form-linha">
                 <input type="hidden" id="ing-id">
-                
-                <div class="input-group" style="flex: 2;">
-                    <label>Nome do Ingrediente</label>
-                    <input type="text" id="ing-nome" placeholder="Ex: Leite Condensado, Ovo">
+                <div class="input-group"><label>Categoria</label><input type="text" id="ing-cat" placeholder="Ex: Secos, Laticínios"></div>
+                <div class="input-group" style="flex: 2;"><label>Ingrediente</label><input type="text" id="ing-nome"></div>
+                <div class="input-group"><label>Medida</label>
+                    <select id="ing-unidade"><option value="g">g</option><option value="ml">ml</option><option value="un">un</option></select>
                 </div>
-                
-                <div class="input-group">
-                    <label>Medida</label>
-                    <select id="ing-unidade" style="padding: 10px; border: 1px solid #ccc; border-radius: 5px; outline: none; background: white;">
-                        <option value="g">Gramas (g)</option>
-                        <option value="ml">Mililitros (ml)</option>
-                        <option value="un">Unidades (un)</option>
-                    </select>
-                </div>
-
-                <div class="input-group">
-                    <label>Qtd. do Pacote</label>
-                    <input type="number" id="ing-peso" placeholder="Ex: 395 ou 12">
-                </div>
-                
-                <div class="input-group">
-                    <label>Preço Pago (R$)</label>
-                    <input type="number" id="ing-preco" placeholder="Ex: 6.50" step="0.01">
-                </div>
-                
-                <button class="btn-salvar" onclick="salvarIngrediente()"><i class="fa-solid fa-plus"></i> Salvar</button>
+                <div class="input-group"><label>Qtd Pacote</label><input type="number" id="ing-peso"></div>
+                <div class="input-group"><label>Preço (R$)</label><input type="number" id="ing-preco" step="0.01"></div>
+                <button class="btn-salvar" onclick="salvarIngrediente()">Salvar</button>
             </div>
-            
-            <div class="lista-itens">
-                <table class="tabela-dados">
-                    <thead>
-                        <tr>
-                            <th>Ingrediente</th>
-                            <th>Pacote</th>
-                            <th>Preço</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-ingredientes-body">
-                        <!-- Será preenchido pelo JavaScript -->
-                    </tbody>
-                </table>
-            </div>
+            <div id="tabela-ingredientes-container"></div>
         </section>
 
+        <!-- ABA: Embalagens (Mantida) -->
         <!-- ABA: Embalagens e Kits -->
         <section id="embalagens" class="tab-content">
             <div class="header-section">
@@ -228,47 +204,32 @@
 
         <!-- ABA: Configurações -->
         <section id="configuracoes" class="tab-content">
-            <div class="header-section">
-                <h2>Configurações e Custos</h2>
-                <p>Defina o valor do seu trabalho e a taxa de custos invisíveis.</p>
-            </div>
-            
+            <div class="header-section"><h2>Configurações e Custos</h2></div>
             <div class="form-container">
-                <div class="input-group">
-                    <label>Seu Salário Mensal Desejado (R$)</label>
-                    <input type="number" id="conf-salario" placeholder="Ex: 2500.00" step="0.01">
-                </div>
-                <div class="input-group">
-                    <label>Horas trabalhadas por mês</label>
-                    <input type="number" id="conf-horas" placeholder="Ex: 100">
-                    <small>Dica: 5h por dia x 20 dias no mês = 100 horas</small>
-                </div>
-                <div class="input-group">
-                    <label>Taxa de Custos Fixos (%)</label>
-                    <input type="number" id="conf-taxa" placeholder="Ex: 10">
-                    <small>Reserva para água, luz, gás, material de limpeza, etc.</small>
-                </div>
-                <button class="btn-salvar" onclick="salvarConfiguracoes()"><i class="fa-solid fa-floppy-disk"></i> Salvar Configurações</button>
-            </div>
-            
-            <!-- Exibição do cálculo -->
-            <div class="resultado-hora">
-                <h3>Sua hora de trabalho vale: <span id="valor-hora-display" style="color: var(--cor-10); font-weight: 900;">R$ 0,00</span></h3>
+                <div class="input-group"><label>Salário Desejado</label><input type="number" id="conf-salario"></div>
+                <div class="input-group"><label>Horas/Mês</label><input type="number" id="conf-horas"></div>
+                <div class="input-group"><label>Taxa Custos Fixos (%)</label><input type="number" id="conf-taxa"></div>
+                <button class="btn-salvar" onclick="salvarConfiguracoes()">Salvar Custos Base</button>
             </div>
             
             <hr class="divisor">
             
-            <div class="backup-section">
-                <h3><i class="fa-solid fa-cloud-arrow-down"></i> Backup e Nuvem Manual</h3>
-                <p style="margin-bottom: 15px; font-size: 0.9rem; color: #666;">Exporte seus dados para um arquivo. Envie para o seu celular ou e-mail para não perder nada!</p>
-                <div class="acoes-edicao">
-                    <button class="btn-editar" onclick="exportarDados()"><i class="fa-solid fa-download"></i> Exportar Dados</button>
-                    <button class="btn-icon" onclick="document.getElementById('import-file').click()"><i class="fa-solid fa-upload"></i> Importar Dados</button>
-                    <input type="file" id="import-file" style="display:none" onchange="importarDados(event)" accept=".json">
+            <div class="form-container" style="border-left-color: #8e44ad;">
+                <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Ajuste de Margem em Lote</h3>
+                <p style="font-size: 0.9rem; margin-bottom: 15px;">Mude o lucro de uma categoria inteira de uma só vez.</p>
+                <div class="form-linha">
+                    <div class="input-group">
+                        <label>Categoria Alvo</label>
+                        <select id="lote-categoria"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>Nova Margem (%)</label>
+                        <input type="number" id="lote-margem">
+                    </div>
+                    <button class="btn-salvar" style="background: #8e44ad;" onclick="aplicarMargemEmLote()">Aplicar a Todos</button>
                 </div>
             </div>
         </section>
-
     </main>
 
     <script src="script.js"></script>

@@ -4,15 +4,20 @@ let ingredientes = [];
 let embalagens = [];
 let receitas = [];
 let receitaAtualComposicao = []; 
+let kitAtualComposicao = [];
+let emailAuth = localStorage.getItem('emailAuth') || '';
+
+// NOVO: Controle de pastas e ordenação
+let categoriasExpandidas = new Set();
+let ordemCategorias = []; 
+let ordemManual = false; 
+let dragCatId = null;
+let dragId = null;
 
 // ====== INICIALIZAÇÃO ======
 document.addEventListener('DOMContentLoaded', () => {
-    carregarDados();
-    atualizarTelaConfiguracoes();
-    atualizarTabelaIngredientes();
-    atualizarTabelaEmbalagens();
-    atualizarSelectItensReceita();
-    atualizarTelaReceitas();
+    document.getElementById('user-email').value = emailAuth;
+    carregarDadosLocal();
 });
 
 // ====== NAVEGAÇÃO DE ABAS ======
@@ -22,6 +27,83 @@ function openTab(tabId) {
     
     document.getElementById(tabId).classList.add('active');
     event.currentTarget.classList.add('active');
+}
+
+// -----------------------------------------------------
+// 1. CLOUD SAVE E AUTENTICAÇÃO (PYTHON BACKEND)
+// -----------------------------------------------------
+function setAuthEmail(email) {
+    emailAuth = email;
+    localStorage.setItem('emailAuth', email);
+}
+
+async function sincronizarNuvem() {
+    if(!emailAuth) return alert("Insira um e-mail para salvar na nuvem.");
+    const dados = { configuracoes, ingredientes, embalagens, receitas, ordemCategorias, ordemManual };
+    try {
+        const res = await fetch('http://localhost:8000/api/sync', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email: emailAuth, dados })
+        });
+        const json = await res.json();
+        document.getElementById('cloud-status').innerText = "Salvo 🟢";
+        setTimeout(()=> document.getElementById('cloud-status').innerText = "", 3000);
+    } catch(e) {
+        alert("Erro ao salvar na nuvem. Verifique se o backend Python está rodando no terminal.");
+    }
+}
+
+async function baixarNuvem() {
+    if(!emailAuth) return alert("Insira seu e-mail.");
+    try {
+        const res = await fetch(`http://localhost:8000/api/sync/${emailAuth}`);
+        if(res.ok) {
+            const json = await res.json();
+            if (json.dados) {
+                configuracoes = json.dados.configuracoes || configuracoes;
+                ingredientes = json.dados.ingredientes || [];
+                embalagens = json.dados.embalagens || [];
+                receitas = json.dados.receitas || [];
+                ordemCategorias = json.dados.ordemCategorias || [];
+                ordemManual = json.dados.ordemManual || false;
+                salvarNoNavegador();
+                carregarDadosLocal();
+                alert("Dados restaurados com sucesso da nuvem!");
+            }
+        } else { 
+            alert("Nenhum backup encontrado na nuvem para este e-mail. Seus dados locais foram preservados."); 
+        }
+    } catch(e) { 
+        alert("Erro de conexão com o servidor Python. Verifique se o terminal com o Uvicorn está rodando."); 
+    }
+}
+
+// ====== SALVAMENTO E LOCALSTORAGE ======
+function salvarNoNavegador() {
+    const dados = { configuracoes, ingredientes, embalagens, receitas, ordemCategorias, ordemManual };
+    localStorage.setItem('dadosConfeitaria', JSON.stringify(dados));
+    atualizarSelects();
+    preencherSelectLote();
+}
+
+function carregarDadosLocal() {
+    const dadosSalvos = localStorage.getItem('dadosConfeitaria');
+    if (dadosSalvos) {
+        const dados = JSON.parse(dadosSalvos);
+        configuracoes = dados.configuracoes || configuracoes;
+        ingredientes = dados.ingredientes || [];
+        embalagens = dados.embalagens || [];
+        receitas = dados.receitas || [];
+        ordemCategorias = dados.ordemCategorias || [];
+        ordemManual = dados.ordemManual || false;
+    }
+    atualizarTelaConfiguracoes();
+    atualizarTabelaIngredientes();
+    atualizarTabelaEmbalagens();
+    atualizarSelects();
+    atualizarTelaReceitas();
+    preencherSelectLote();
 }
 
 // ====== LÓGICA DE CONFIGURAÇÕES ======
@@ -47,13 +129,18 @@ function atualizarTelaConfiguracoes() {
     document.getElementById('conf-horas').value = configuracoes.horas || '';
     document.getElementById('conf-taxa').value = configuracoes.taxaFixa || '';
     
-    document.getElementById('valor-hora-display').innerText = 
-        `R$ ${configuracoes.valorHora.toFixed(2).replace('.', ',')}`;
+    const displayHora = document.getElementById('valor-hora-display');
+    if(displayHora) {
+        displayHora.innerText = `R$ ${configuracoes.valorHora.toFixed(2).replace('.', ',')}`;
+    }
 }
 
-// ====== LÓGICA DE INGREDIENTES ======
+// -----------------------------------------------------
+// 3 & 7. ESTOQUE (CATEGORIAS E BUSCA INTELIGENTE)
+// -----------------------------------------------------
 function salvarIngrediente() {
     const idEdit = document.getElementById('ing-id').value;
+    const cat = document.getElementById('ing-cat').value || 'Geral';
     const nome = document.getElementById('ing-nome').value;
     const unidade = document.getElementById('ing-unidade').value;
     const peso = parseFloat(document.getElementById('ing-peso').value);
@@ -67,11 +154,12 @@ function salvarIngrediente() {
     if (idEdit) {
         const index = ingredientes.findIndex(i => i.id === idEdit);
         if (index !== -1) {
-            ingredientes[index] = { id: idEdit, nome, peso, preco, unidade };
+            ingredientes[index] = { id: idEdit, cat, nome, peso, preco, unidade };
         }
     } else {
         const novoIngrediente = {
             id: 'ing_' + Date.now().toString(),
+            cat,
             nome,
             peso,
             preco,
@@ -81,6 +169,7 @@ function salvarIngrediente() {
     }
 
     document.getElementById('ing-id').value = '';
+    document.getElementById('ing-cat').value = '';
     document.getElementById('ing-nome').value = '';
     document.getElementById('ing-unidade').value = 'g';
     document.getElementById('ing-peso').value = '';
@@ -88,39 +177,57 @@ function salvarIngrediente() {
 
     salvarNoNavegador();
     atualizarTabelaIngredientes();
-    atualizarSelectItensReceita(); 
-    atualizarTelaReceitas();
 }
 
 function atualizarTabelaIngredientes() {
-    const tbody = document.getElementById('tabela-ingredientes-body');
-    if(!tbody) return;
-    tbody.innerHTML = '';
+    const container = document.getElementById('tabela-ingredientes-container');
+    if(!container) return;
+    const buscaInput = document.getElementById('busca-estoque');
+    const busca = (buscaInput ? buscaInput.value : '').toLowerCase();
+    container.innerHTML = '';
 
-    ingredientes.forEach(ing => {
-        const und = ing.unidade || 'g/ml'; 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${ing.nome}</td>
-            <td>${ing.peso} ${und}</td>
-            <td>R$ ${ing.preco.toFixed(2).replace('.', ',')}</td>
-            <td class="acoes-tabela">
-                <button class="btn-editar" onclick="editarIngrediente('${ing.id}')"><i class="fa-solid fa-pen"></i></button>
-                <button class="btn-excluir" onclick="excluirIngrediente('${ing.id}')"><i class="fa-solid fa-trash"></i></button>
-            </td>
-        `;
-        tbody.appendChild(tr);
+    let grupos = {};
+    ingredientes.filter(i => i.nome.toLowerCase().includes(busca)).forEach(i => {
+        let c = i.cat || 'Geral';
+        if(!grupos[c]) grupos[c] = [];
+        grupos[c].push(i);
     });
+
+    for(let cat in grupos) {
+        let html = `
+            <div class="categoria-titulo" style="background: var(--cor-30-escuro); padding: 10px; font-weight: bold; margin-top: 20px; border-radius: 5px; color: var(--cor-60);">${cat}</div>
+            <table class="tabela-dados" style="width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; margin-top: 5px;">
+            <thead><tr><th>Ingrediente</th><th>Pacote</th><th>Preço</th><th>Ações</th></tr></thead>
+            <tbody>`;
+        grupos[cat].forEach(ing => {
+            const und = ing.unidade || 'g/ml';
+            html += `<tr>
+                <td>${ing.nome}</td>
+                <td>${ing.peso} ${und}</td>
+                <td>R$ ${ing.preco.toFixed(2).replace('.', ',')}</td>
+                <td class="acoes-tabela" style="display: flex; gap: 5px;">
+                    <button class="btn-editar" onclick="editarIngrediente('${ing.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn-excluir" onclick="excluirIngrediente('${ing.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+        container.innerHTML += html;
+    }
 }
 
 function editarIngrediente(id) {
     const ing = ingredientes.find(i => i.id === id);
     if (ing) {
         document.getElementById('ing-id').value = ing.id;
+        document.getElementById('ing-cat').value = ing.cat || '';
         document.getElementById('ing-nome').value = ing.nome;
         document.getElementById('ing-unidade').value = ing.unidade || 'g'; 
         document.getElementById('ing-peso').value = ing.peso;
         document.getElementById('ing-preco').value = ing.preco;
+        
+        // Rola a página suavemente para o formulário no topo da aba
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
 
@@ -132,64 +239,8 @@ function excluirIngrediente(id) {
     }
 }
 
-// ====== SALVAMENTO E BACKUP (LOCALSTORAGE) ======
-function salvarNoNavegador() {
-    const dados = { configuracoes, ingredientes, embalagens, receitas };
-    localStorage.setItem('dadosConfeitaria', JSON.stringify(dados));
-}
-
-function carregarDados() {
-    const dadosSalvos = localStorage.getItem('dadosConfeitaria');
-    if (dadosSalvos) {
-        const dados = JSON.parse(dadosSalvos);
-        configuracoes = dados.configuracoes || configuracoes;
-        ingredientes = dados.ingredientes || [];
-        embalagens = dados.embalagens || [];
-        receitas = dados.receitas || [];
-    }
-}
-
-function exportarDados() {
-    const dados = localStorage.getItem('dadosConfeitaria');
-    if (!dados) {
-        alert("Não há dados para exportar.");
-        return;
-    }
-    const blob = new Blob([dados], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "backup_precificador.json";
-    a.click();
-}
-
-function importarDados(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const dadosImportados = JSON.parse(e.target.result);
-            if (dadosImportados.configuracoes || dadosImportados.ingredientes) {
-                localStorage.setItem('dadosConfeitaria', JSON.stringify(dadosImportados));
-                carregarDados();
-                atualizarTelaConfiguracoes();
-                atualizarTabelaIngredientes();
-                atualizarTelaReceitas();
-                alert("Dados importados com sucesso!");
-            } else {
-                alert("Arquivo inválido.");
-            }
-        } catch (error) {
-            alert("Erro ao ler o arquivo.");
-        }
-    };
-    reader.readAsText(file);
-}
-
 // ==========================================
-// ====== LÓGICA DE EMBALAGENS ======
+// LÓGICA DE EMBALAGENS
 // ==========================================
 function salvarEmbalagem() {
     const idEdit = document.getElementById('emb-id').value;
@@ -213,8 +264,6 @@ function salvarEmbalagem() {
 
     salvarNoNavegador();
     atualizarTabelaEmbalagens();
-    atualizarSelectItensReceita();
-    atualizarTelaReceitas(); 
 }
 
 function atualizarTabelaEmbalagens() {
@@ -227,12 +276,24 @@ function atualizarTabelaEmbalagens() {
             <td>${emb.nome}</td>
             <td>${emb.qtd} un</td>
             <td>R$ ${emb.preco.toFixed(2).replace('.', ',')}</td>
-            <td class="acoes-tabela">
-                <button class="btn-excluir" onclick="excluirEmbalagem('${emb.id}')"><i class="fa-solid fa-trash"></i></button>
+            <td class="acoes-tabela" style="display: flex; gap: 5px;">
+                <button class="btn-editar" onclick="editarEmbalagem('${emb.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn-excluir" onclick="excluirEmbalagem('${emb.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
             </td>
         `;
         tbody.appendChild(tr);
     });
+}
+
+function editarEmbalagem(id) {
+    const emb = embalagens.find(e => e.id === id);
+    if (emb) {
+        document.getElementById('emb-id').value = emb.id;
+        document.getElementById('emb-nome').value = emb.nome;
+        document.getElementById('emb-qtd').value = emb.qtd;
+        document.getElementById('emb-preco').value = emb.preco;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 }
 
 function excluirEmbalagem(id) {
@@ -240,35 +301,35 @@ function excluirEmbalagem(id) {
         embalagens = embalagens.filter(e => e.id !== id);
         salvarNoNavegador();
         atualizarTabelaEmbalagens();
-        atualizarSelectItensReceita();
     }
 }
 
 // ==========================================
-// ====== LÓGICA DE CRIAR RECEITA ======
+// SELECTS E COMPOSIÇÃO DE RECEITAS
 // ==========================================
-function atualizarSelectItensReceita() {
+function atualizarSelects() {
     const select = document.getElementById('rec-item-select');
-    if(!select) return;
-    select.innerHTML = '<option value="">-- Escolha um Ingrediente ou Embalagem --</option>';
+    const sk = document.getElementById('kit-item-select');
     
-    const ingOrdenados = [...ingredientes].sort((a, b) => a.nome.localeCompare(b.nome));
-    const embOrdenadas = [...embalagens].sort((a, b) => a.nome.localeCompare(b.nome));
+    if(select) {
+        select.innerHTML = '<option value="">-- Escolha um Ingrediente ou Embalagem --</option>';
+        ingredientes.forEach(ing => {
+            select.innerHTML += `<option value="${ing.id}">${ing.nome} (${ing.peso}${ing.unidade || 'g'})</option>`;
+        });
+        embalagens.forEach(emb => {
+            select.innerHTML += `<option value="${emb.id}">${emb.nome} (Embalagem)</option>`;
+        });
+    }
 
-    const optgroupIng = document.createElement('optgroup');
-    optgroupIng.label = "Ingredientes";
-    ingOrdenados.forEach(ing => {
-        const und = ing.unidade || 'g/ml';
-        optgroupIng.innerHTML += `<option value="${ing.id}">${ing.nome} (Estoque: ${ing.peso}${und} por R$${ing.preco.toFixed(2)})</option>`;
-    });
-    select.appendChild(optgroupIng);
-
-    const optgroupEmb = document.createElement('optgroup');
-    optgroupEmb.label = "Embalagens (Unidades)";
-    embOrdenadas.forEach(emb => {
-        optgroupEmb.innerHTML += `<option value="${emb.id}">${emb.nome} (Pacote c/ ${emb.qtd} por R$${emb.preco.toFixed(2)})</option>`;
-    });
-    select.appendChild(optgroupEmb);
+    if(sk) {
+        sk.innerHTML = '<option value="">-- Escolha uma Receita ou Embalagem --</option>';
+        receitas.filter(r => !r.isKit).forEach(r => {
+            sk.innerHTML += `<option value="${r.id}">${r.nome} (Receita)</option>`;
+        });
+        embalagens.forEach(emb => {
+            sk.innerHTML += `<option value="${emb.id}">${emb.nome} (Embalagem)</option>`;
+        });
+    }
 }
 
 function adicionarItemNaReceita() {
@@ -278,68 +339,29 @@ function adicionarItemNaReceita() {
 
     if (!valorSelect || !qtdUsada) return alert("Selecione um item e informe a quantidade usada!");
 
-    const tipo = valorSelect.split('_')[0]; 
-    
-    let itemEstoque = null;
-    let custoFracionado = 0;
-    let unidadeMedida = '';
-
-    if (tipo === 'ing') {
-        itemEstoque = ingredientes.find(i => i.id === valorSelect);
-        custoFracionado = (itemEstoque.preco / itemEstoque.peso) * qtdUsada;
-        unidadeMedida = itemEstoque.unidade || 'g/ml';
-    } else {
-        itemEstoque = embalagens.find(e => e.id === valorSelect);
-        custoFracionado = (itemEstoque.preco / itemEstoque.qtd) * qtdUsada;
-        unidadeMedida = 'un';
-    }
+    let itemEstoque = ingredientes.find(i => i.id === valorSelect) || embalagens.find(e => e.id === valorSelect);
+    let unidadeMedida = itemEstoque.unidade || 'un';
 
     receitaAtualComposicao.push({
         idUnico: Date.now().toString(),
         idOriginal: itemEstoque.id,
-        tipo: tipo,
         nome: itemEstoque.nome,
         qtdUsada: qtdUsada,
-        custoReal: custoFracionado,
         unidade: unidadeMedida
     });
 
     document.getElementById('rec-item-select').value = '';
     document.getElementById('rec-item-qtd').value = '';
     
-    renderizarComposicaoReceita();
     calcularCustosDaReceita();
 }
 
-function renderizarComposicaoReceita() {
-    const lista = document.getElementById('lista-composicao-receita');
-    lista.innerHTML = '';
-
-    if(receitaAtualComposicao.length === 0) {
-        lista.innerHTML = '<p style="text-align: center; color: #999; font-size: 0.9rem;">Nenhum item adicionado.</p>';
-        return;
-    }
-
-    receitaAtualComposicao.forEach(item => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <span>${item.nome} <em>(${item.qtdUsada} ${item.unidade})</em></span> 
-            <span>
-                R$ ${item.custoReal.toFixed(2).replace('.', ',')}
-                <button class="btn-icon" style="background:transparent; color:#e74c3c; padding:0; margin-left:10px;" onclick="removerItemDaReceita('${item.idUnico}')"><i class="fa-solid fa-xmark"></i></button>
-            </span>
-        `;
-        lista.appendChild(li);
-    });
-}
-
-function removerItemDaReceita(idUnico) {
-    receitaAtualComposicao = receitaAtualComposicao.filter(i => i.idUnico !== idUnico);
-    renderizarComposicaoReceita();
+function atualizarQtdInline(idUnico, novaQtd) {
+    let item = receitaAtualComposicao.find(i => i.idUnico == idUnico);
+    if(item) item.qtdUsada = parseFloat(novaQtd) || 0;
     calcularCustosDaReceita();
 }
 
-// ====== A CALCULADORA MAGNÍFICA ======
 let custoTotalAtual = 0; 
 
 function calcularCustosDaReceita() {
@@ -347,7 +369,29 @@ function calcularCustosDaReceita() {
     const tempoMin = parseFloat(document.getElementById('rec-tempo').value) || 0;
 
     let custoInsumos = 0;
-    receitaAtualComposicao.forEach(item => custoInsumos += item.custoReal);
+    const lista = document.getElementById('lista-composicao-receita');
+    if(lista) {
+        lista.innerHTML = '';
+        receitaAtualComposicao.forEach(item => {
+            let base = ingredientes.find(i=>i.id===item.idOriginal) || embalagens.find(e=>e.id===item.idOriginal);
+            let custoReal = 0;
+            if (base) {
+                custoReal = base.id.includes('ing') ? (base.preco / base.peso) * item.qtdUsada : (base.preco / base.qtd) * item.qtdUsada;
+            }
+            item.custoReal = custoReal;
+            custoInsumos += custoReal;
+
+            lista.innerHTML += `
+                <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                    <span>${item.nome}</span> 
+                    <span>
+                        <input type="number" class="input-inline" value="${item.qtdUsada}" oninput="atualizarQtdInline(${item.idUnico}, this.value)" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"> ${item.unidade}
+                        | R$ ${custoReal.toFixed(2).replace('.', ',')}
+                        <button class="btn-icon-small" style="background:transparent; color:#e74c3c; border:none; cursor:pointer; margin-left:8px;" onclick="removerItemDaReceita('${item.idUnico}')"><i class="fa-solid fa-xmark"></i></button>
+                    </span>
+                </li>`;
+        });
+    }
 
     let custoMaoDeObra = (configuracoes.valorHora / 60) * tempoMin;
     let subtotal = custoInsumos + custoMaoDeObra;
@@ -355,36 +399,25 @@ function calcularCustosDaReceita() {
 
     custoTotalAtual = custoInsumos + custoMaoDeObra + custoFixo;
     let custoUnitario = custoTotalAtual / rendimento;
-    
-    // Matemática exata do Raio-X Unitário para bater perfeitamente com o Custo Unitário
-    let unitTotalArredondado = parseFloat(custoUnitario.toFixed(2));
-    let unitInsumo = parseFloat((custoInsumos / rendimento).toFixed(2));
-    let unitMaoObra = parseFloat((custoMaoDeObra / rendimento).toFixed(2));
-    // O Custo Fixo absorve qualquer diferença de centavos do arredondamento
-    let unitFixo = +(unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2);
 
-    document.getElementById('res-insumos').innerText = `R$ ${custoInsumos.toFixed(2).replace('.', ',')}`;
-    document.getElementById('res-maodeobra').innerText = `R$ ${custoMaoDeObra.toFixed(2).replace('.', ',')}`;
-    document.getElementById('res-custosfixos').innerText = `R$ ${custoFixo.toFixed(2).replace('.', ',')}`;
-    
-    document.getElementById('res-custototal').innerText = `R$ ${custoTotalAtual.toFixed(2).replace('.', ',')}`;
-    document.getElementById('res-custounitario').innerText = `R$ ${custoUnitario.toFixed(2).replace('.', ',')}`;
-
-    document.getElementById('res-raiox').innerHTML = `
-        <div class="raiox-unitario" style="margin-bottom: 20px; border-top: 1px dashed #ccc; padding-top: 10px;">
-            <strong>Raio-X Unitário:</strong> Insumos: R$ ${unitInsumo.toFixed(2).replace('.', ',')} | 
-            Fixos: R$ ${unitFixo.toFixed(2).replace('.', ',')} | 
-            Mão de Obra: <span>R$ ${unitMaoObra.toFixed(2).replace('.', ',')}</span>
-        </div>`;
+    const resTot = document.getElementById('res-custototal');
+    const resUni = document.getElementById('res-custounitario');
+    if(resTot) resTot.innerText = `R$ ${custoTotalAtual.toFixed(2).replace('.', ',')}`;
+    if(resUni) resUni.innerText = `R$ ${custoUnitario.toFixed(2).replace('.', ',')}`;
 
     calcularPorMargem(); 
 }
 
+function removerItemDaReceita(idUnico) {
+    receitaAtualComposicao = receitaAtualComposicao.filter(i => i.idUnico !== idUnico);
+    calcularCustosDaReceita();
+}
+
 function calcularPorMargem() {
-    const margemInput = document.getElementById('rec-margem').value;
-    if (margemInput === '') return;
+    const margemInput = document.getElementById('rec-margem');
+    if(!margemInput || margemInput.value === '') return;
     
-    const margem = parseFloat(margemInput);
+    const margem = parseFloat(margemInput.value);
     const rendimento = parseFloat(document.getElementById('rec-rendimento').value) || 1;
     const custoUnitario = custoTotalAtual / rendimento;
     
@@ -393,10 +426,10 @@ function calcularPorMargem() {
 }
 
 function calcularPorPreco() {
-    const precoInput = document.getElementById('rec-preco-venda').value;
-    if (precoInput === '') return;
+    const precoInput = document.getElementById('rec-preco-venda');
+    if(!precoInput || precoInput.value === '') return;
     
-    const precoDeVenda = parseFloat(precoInput);
+    const precoDeVenda = parseFloat(precoInput.value);
     const rendimento = parseFloat(document.getElementById('rec-rendimento').value) || 1;
     const custoUnitario = custoTotalAtual / rendimento;
     
@@ -406,12 +439,9 @@ function calcularPorPreco() {
     }
 }
 
-// ==========================================
-// ====== LÓGICA DE SALVAR E EXIBIR RECEITAS ======
-// ==========================================
 function salvarReceitaCriada() {
     const nome = document.getElementById('rec-nome').value;
-    const categoria = document.getElementById('rec-categoria').value || 'Outros'; 
+    const categoria = document.getElementById('rec-categoria').value || 'Geral'; 
     const rendimento = parseFloat(document.getElementById('rec-rendimento').value);
     const tempo = parseFloat(document.getElementById('rec-tempo').value);
     const margem = parseFloat(document.getElementById('rec-margem').value) || 0;
@@ -440,15 +470,16 @@ function salvarReceitaCriada() {
         margem,
         precoVenda,
         composicao: [...receitaAtualComposicao],
-        custos: { insumos: custoInsumos, maoDeObra: custoMaoDeObra, fixo: custoFixo, totalMassa: custoTotal, unitario: custoUnitario }
+        custos: { insumos: custoInsumos, maoDeObra: custoMaoDeObra, fixo: custoFixo, totalMassa: custoTotal, unitario: custoUnitario },
+        isKit: false
     };
 
     const indexExistente = receitas.findIndex(r => r.id === idReceita);
     if (indexExistente !== -1) receitas[indexExistente] = novaReceita;
     else receitas.push(novaReceita);
 
-    salvarNoNavegador();
     limparFormularioReceita();
+    salvarNoNavegador();
     atualizarTelaReceitas();
     
     alert("Receita salva com sucesso!");
@@ -467,13 +498,138 @@ function limparFormularioReceita() {
     document.getElementById('rec-preco-venda').value = '';
     
     receitaAtualComposicao = [];
-    renderizarComposicaoReceita();
-    document.getElementById('res-insumos').innerText = 'R$ 0,00';
-    document.getElementById('res-maodeobra').innerText = 'R$ 0,00';
-    document.getElementById('res-custosfixos').innerText = 'R$ 0,00';
-    document.getElementById('res-custototal').innerText = 'R$ 0,00';
-    document.getElementById('res-custounitario').innerText = 'R$ 0,00';
-    document.getElementById('res-raiox').innerHTML = ''; 
+    calcularCustosDaReceita();
+}
+
+// -----------------------------------------------------
+// 6. MÓDULO DE KITS E ENCOMENDAS
+// -----------------------------------------------------
+function adicionarItemNoKit() {
+    const id = document.getElementById('kit-item-select').value;
+    const qtd = parseFloat(document.getElementById('kit-item-qtd').value);
+    if(!id || !qtd) return alert("Selecione um item e a quantidade!");
+
+    kitAtualComposicao.push({ idUnico: Date.now().toString(), idOriginal: id, qtdUsada: qtd });
+    document.getElementById('kit-item-qtd').value = '';
+    calcularCustosKit();
+}
+
+function atualizarQtdKit(idUnico, novaQtd) {
+    let item = kitAtualComposicao.find(i => i.idUnico == idUnico);
+    if(item) item.qtdUsada = parseFloat(novaQtd) || 0;
+    calcularCustosKit();
+}
+
+let custoTotalKitAtual = 0;
+
+function calcularCustosKit() {
+    let custoTotal = 0;
+    const lista = document.getElementById('lista-composicao-kit'); 
+    if(!lista) return;
+    lista.innerHTML = '';
+    
+    kitAtualComposicao.forEach(item => {
+        let rec = receitas.find(r => r.id === item.idOriginal);
+        let emb = embalagens.find(e => e.id === item.idOriginal);
+        let nome = rec ? rec.nome : (emb ? emb.nome : 'Item');
+        
+        let custoUnit = 0;
+        if(rec) {
+            let cInsumo = 0;
+            rec.composicao.forEach(i => {
+                let base = ingredientes.find(x => x.id === i.idOriginal) || embalagens.find(x => x.id === i.idOriginal);
+                if(base) {
+                    let div = base.id.includes('ing') ? base.peso : base.qtd;
+                    cInsumo += (base.preco / div) * i.qtdUsada;
+                }
+            });
+            let cMaoObra = (configuracoes.valorHora / 60) * rec.tempo;
+            let cFixo = (cInsumo + cMaoObra) * (configuracoes.taxaFixa / 100);
+            custoUnit = (cInsumo + cMaoObra + cFixo) / rec.rendimento;
+        } else if(emb) {
+            custoUnit = emb.preco / emb.qtd;
+        }
+
+        let custoLinha = custoUnit * item.qtdUsada;
+        custoTotal += custoLinha;
+
+        lista.innerHTML += `
+            <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                <span>${nome}</span>
+                <span>
+                    <input type="number" class="input-inline" value="${item.qtdUsada}" oninput="atualizarQtdKit(${item.idUnico}, this.value)" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"> un
+                    | R$ ${custoLinha.toFixed(2).replace('.', ',')}
+                    <button class="btn-icon-small" style="background:transparent; color:#e74c3c; border:none; cursor:pointer; margin-left:8px;" onclick="kitAtualComposicao=kitAtualComposicao.filter(i=>i.idUnico!=${item.idUnico});calcularCustosKit()"><i class="fa-solid fa-xmark"></i></button>
+                </span>
+            </li>`;
+    });
+
+    custoTotalKitAtual = custoTotal;
+    document.getElementById('kit-custototal').innerText = `R$ ${custoTotal.toFixed(2).replace('.', ',')}`;
+    calcularMargemKit();
+}
+
+function calcularMargemKit() {
+    let mInput = document.getElementById('kit-margem');
+    if(!mInput || mInput.value === '') return;
+    let m = parseFloat(mInput.value);
+    document.getElementById('kit-preco').value = (custoTotalKitAtual * (1 + (m / 100))).toFixed(2);
+}
+
+function calcularPrecoKit() {
+    let pvInput = document.getElementById('kit-preco');
+    if(!pvInput || pvInput.value === '') return;
+    let pv = parseFloat(pvInput.value);
+    if(pv && custoTotalKitAtual > 0) {
+        document.getElementById('kit-margem').value = (((pv - custoTotalKitAtual) / custoTotalKitAtual) * 100).toFixed(1);
+    }
+}
+
+function salvarKit() {
+    const nome = document.getElementById('kit-nome').value;
+    const categoria = document.getElementById('kit-categoria').value || 'Kits';
+    const margem = parseFloat(document.getElementById('kit-margem').value) || 0;
+    const precoVenda = parseFloat(document.getElementById('kit-preco').value) || 0;
+
+    if(!nome || kitAtualComposicao.length === 0) return alert("Dê um nome e adicione itens ao kit!");
+    if(precoVenda === 0) return alert("Defina a margem ou o preço de venda!");
+
+    let hiddenId = document.getElementById('kit-id-edit').value;
+    const obj = {
+        id: hiddenId || 'kit_' + Date.now().toString(),
+        nome,
+        categoria,
+        rendimento: 1, 
+        tempo: 0,
+        margem,
+        precoVenda,
+        composicao: [...kitAtualComposicao],
+        custos: { unitario: custoTotalKitAtual, insumos: custoTotalKitAtual, maoDeObra: 0, fixo: 0, totalMassa: custoTotalKitAtual },
+        isKit: true
+    };
+
+    const idx = receitas.findIndex(r => r.id === obj.id);
+    if(idx > -1) receitas[idx] = obj;
+    else receitas.push(obj);
+
+    document.getElementById('kit-id-edit').value = '';
+    document.getElementById('kit-nome').value = '';
+    document.getElementById('kit-margem').value = '';
+    document.getElementById('kit-preco').value = '';
+    kitAtualComposicao = [];
+    
+    salvarNoNavegador(); 
+    atualizarTelaReceitas(); 
+    openTab('receitas');
+}
+
+// -----------------------------------------------------
+// 4 & 5. DRAG & DROP + COLAPSÁVEIS + RENDERIZAÇÃO
+// -----------------------------------------------------
+function toggleCategoria(cat) {
+    if(categoriasExpandidas.has(cat)) categoriasExpandidas.delete(cat);
+    else categoriasExpandidas.add(cat);
+    atualizarTelaReceitas(); 
 }
 
 function atualizarTelaReceitas() {
@@ -487,157 +643,216 @@ function atualizarTelaReceitas() {
     }
 
     receitas.forEach(rec => {
-        let novoCustoInsumos = 0;
-        rec.composicao.forEach(item => {
-            if(item.tipo === 'ing') {
-                const ing = ingredientes.find(i => i.id === item.idOriginal);
-                if(ing) item.custoReal = (ing.preco / ing.peso) * item.qtdUsada;
-            } else {
-                const emb = embalagens.find(e => e.id === item.idOriginal);
-                if(emb) item.custoReal = (emb.preco / emb.qtd) * item.qtdUsada;
-            }
-            novoCustoInsumos += item.custoReal;
-        });
-
-        rec.custos.insumos = novoCustoInsumos;
-        rec.custos.maoDeObra = (configuracoes.valorHora / 60) * rec.tempo;
-        rec.custos.fixo = (novoCustoInsumos + rec.custos.maoDeObra) * ((configuracoes.taxaFixa || 0) / 100);
-        rec.custos.totalMassa = novoCustoInsumos + rec.custos.maoDeObra + rec.custos.fixo;
-        rec.custos.unitario = rec.custos.totalMassa / rec.rendimento;
-        
-        if(rec.precoVenda > 0) {
-            rec.margem = ((rec.precoVenda - rec.custos.unitario) / rec.custos.unitario) * 100;
+        if (!rec.isKit) {
+            let novoCustoInsumos = 0;
+            rec.composicao.forEach(item => {
+                let base = ingredientes.find(i => i.id === item.idOriginal) || embalagens.find(e => e.id === item.idOriginal);
+                if (base) {
+                    item.custoReal = base.id.includes('ing') ? (base.preco / base.peso) * item.qtdUsada : (base.preco / base.qtd) * item.qtdUsada;
+                    novoCustoInsumos += item.custoReal;
+                }
+            });
+            rec.custos = rec.custos || {};
+            rec.custos.insumos = novoCustoInsumos;
+            rec.custos.maoDeObra = (configuracoes.valorHora / 60) * rec.tempo;
+            rec.custos.fixo = (novoCustoInsumos + rec.custos.maoDeObra) * ((configuracoes.taxaFixa || 0) / 100);
+            rec.custos.totalMassa = novoCustoInsumos + rec.custos.maoDeObra + rec.custos.fixo;
+            rec.custos.unitario = rec.custos.totalMassa / rec.rendimento;
+            
+            if(rec.precoVenda > 0) rec.margem = ((rec.precoVenda - rec.custos.unitario) / rec.custos.unitario) * 100;
+        } else {
+            let custoTotalKit = 0;
+            rec.composicao.forEach(item => {
+                let recInterna = receitas.find(r => r.id === item.idOriginal);
+                let emb = embalagens.find(e => e.id === item.idOriginal);
+                if (recInterna) custoTotalKit += recInterna.custos.unitario * item.qtdUsada;
+                else if (emb) custoTotalKit += (emb.preco / emb.qtd) * item.qtdUsada;
+            });
+            rec.custos = { unitario: custoTotalKit, insumos: custoTotalKit, maoDeObra: 0, fixo: 0, totalMassa: custoTotalKit };
+            if(rec.precoVenda > 0) rec.margem = ((rec.precoVenda - rec.custos.unitario) / rec.custos.unitario) * 100;
         }
     });
     salvarNoNavegador();
 
-    const receitasPorCategoria = {};
-    
-    receitas.forEach(rec => {
-        const cat = rec.categoria || 'Outros';
-        if(!receitasPorCategoria[cat]) receitasPorCategoria[cat] = [];
-        receitasPorCategoria[cat].push(rec);
+    let grupos = {};
+    receitas.forEach(r => { 
+        let c = r.categoria || 'Geral';
+        if(!grupos[c]) grupos[c] = []; 
+        grupos[c].push(r); 
     });
 
-    for (const categoria in receitasPorCategoria) {
-        
-        const headerCat = document.createElement('div');
-        headerCat.innerHTML = `
-            <h3 style="margin: 0; color: var(--cor-60); text-transform: uppercase; letter-spacing: 1px;">
-                <i class="fa-solid fa-folder-open"></i> ${categoria}
-            </h3>
-            <i class="fa-solid fa-chevron-up icon-toggle" style="color: var(--cor-60); font-size: 1.2rem;"></i>
-        `;
-        headerCat.style = "display: flex; justify-content: space-between; align-items: center; margin: 30px 0 15px 0; border-bottom: 2px solid var(--cor-30-escuro); padding-bottom: 5px; cursor: pointer;";
-        
-        const divCatContent = document.createElement('div');
-        divCatContent.id = `cat-content-${categoria.replace(/\s+/g, '-')}`;
-        
-        headerCat.onclick = () => {
-            if(divCatContent.style.display === 'none') {
-                divCatContent.style.display = 'block';
-                headerCat.querySelector('.icon-toggle').classList.replace('fa-chevron-down', 'fa-chevron-up');
-                headerCat.querySelector('.fa-folder').classList.replace('fa-folder', 'fa-folder-open'); 
-            } else {
-                divCatContent.style.display = 'none';
-                headerCat.querySelector('.icon-toggle').classList.replace('fa-chevron-up', 'fa-chevron-down');
-                headerCat.querySelector('.fa-folder-open').classList.replace('fa-folder-open', 'fa-folder'); 
-            }
-        };
-
-        container.appendChild(headerCat);
-
-        receitasPorCategoria[categoria].forEach(rec => {
-            let htmlComposicao = '';
-            rec.composicao.forEach(item => {
-                htmlComposicao += `<li><span>${item.nome} (${item.qtdUsada} ${item.unidade})</span> <span>R$ ${item.custoReal.toFixed(2).replace('.', ',')}</span></li>`;
-            });
-
-            let lucroUnidade = rec.precoVenda - rec.custos.unitario;
-
-            // Matemática exata do Raio-X nos cartões salvos
-            let unitTotalArredondado = parseFloat(rec.custos.unitario.toFixed(2));
-            let unitInsumo = parseFloat((rec.custos.insumos / rec.rendimento).toFixed(2));
-            let unitMaoObra = parseFloat((rec.custos.maoDeObra / rec.rendimento).toFixed(2));
-            // O Custo Fixo absorve qualquer diferença de centavos
-            let unitFixo = +(unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2);
-
-            const div = document.createElement('div');
-            div.className = 'card-receita';
-            
-            div.innerHTML = `
-                <div class="card-receita-resumo">
-                    <div class="info-principal">
-                        <h3>${rec.nome}</h3>
-                        <p class="rendimento">Rende: ${rec.rendimento} unidades</p>
-                    </div>
-                    <div class="valores-resumo">
-                        <div class="valor">
-                            <small>Custo Unit.</small>
-                            <span>R$ ${rec.custos.unitario.toFixed(2).replace('.', ',')}</span>
-                        </div>
-                        <div class="valor destaque">
-                            <small>Venda (Unid.)</small>
-                            <span>R$ ${rec.precoVenda.toFixed(2).replace('.', ',')}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="card-receita-footer">
-                    <div class="acoes" style="display: flex; gap: 8px;">
-                        <button class="btn-icon-small" onclick="moverReceita('${rec.id}', 'up')" title="Subir"><i class="fa-solid fa-arrow-up"></i></button>
-                        <button class="btn-icon-small" onclick="moverReceita('${rec.id}', 'down')" title="Descer"><i class="fa-solid fa-arrow-down"></i></button>
-                        <button class="btn-detalhes" onclick="toggleDetalhes('${rec.id}')">
-                            <i class="fa-solid fa-chevron-down"></i> Detalhes
-                        </button>
-                    </div>
-                    <div class="raiox-unitario">
-                        <strong>Raio-X Unitário:</strong> Insumos: R$ ${unitInsumo.toFixed(2).replace('.', ',')} | 
-                        Fixos: R$ ${unitFixo.toFixed(2).replace('.', ',')} | 
-                        Mão de Obra: <span>R$ ${unitMaoObra.toFixed(2).replace('.', ',')}</span>
-                    </div>
-                </div>
-                
-                <div id="detalhes-${rec.id}" class="card-receita-detalhes" style="display: none;">
-                    <hr>
-                    <h4>Custos Atualizados (Baseados no Estoque Atual)</h4>
-                    <ul class="lista-detalhes">
-                        ${htmlComposicao}
-                        <li style="color: var(--cor-60); font-weight: bold; background: #f9f9f9; padding: 5px;">
-                            <span>Seu Tempo (${rec.tempo} min)</span> <span>R$ ${rec.custos.maoDeObra.toFixed(2).replace('.', ',')}</span>
-                        </li>
-                        <li style="color: var(--cor-60); font-weight: bold; background: #f9f9f9; padding: 5px;">
-                            <span>Custos Fixos/Invisíveis</span> <span>R$ ${rec.custos.fixo.toFixed(2).replace('.', ',')}</span>
-                        </li>
-                    </ul>
-                    <div class="totais-detalhes">
-                        <p><strong>Custo Total (Massa):</strong> R$ ${rec.custos.totalMassa.toFixed(2).replace('.', ',')}</p>
-                        <p><strong>Lucro Líquido Real:</strong> <span style="color: ${lucroUnidade >= 0 ? 'var(--cor-10)' : 'red'};">R$ ${lucroUnidade.toFixed(2).replace('.', ',')} (${rec.margem.toFixed(1)}%)</span></p>
-                    </div>
-                    <div class="acoes-edicao">
-                        <button class="btn-icon" style="background-color: var(--cor-60);" onclick="duplicarReceita('${rec.id}')"><i class="fa-solid fa-copy"></i> Duplicar</button>
-                        <button class="btn-editar" onclick="editarReceitaSalva('${rec.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
-                        <button class="btn-excluir" onclick="excluirReceita('${rec.id}')"><i class="fa-solid fa-trash"></i> Excluir</button>
-                    </div>
-                </div>
-            `;
-            divCatContent.appendChild(div);
-        });
-
-        container.appendChild(divCatContent);
-    }
-}
-
-function toggleDetalhes(id) {
-    const divDetalhes = document.getElementById(`detalhes-${id}`);
-    if (divDetalhes.style.display === 'none') {
-        divDetalhes.style.display = 'block';
+    let categoriasAtuais = Object.keys(grupos);
+    if (!ordemManual) {
+        ordemCategorias = categoriasAtuais.sort((a, b) => a.localeCompare(b));
     } else {
-        divDetalhes.style.display = 'none';
+        ordemCategorias = ordemCategorias.filter(c => categoriasAtuais.includes(c));
+        let novas = categoriasAtuais.filter(c => !ordemCategorias.includes(c)).sort((a,b) => a.localeCompare(b));
+        ordemCategorias.push(...novas);
+    }
+
+    ordemCategorias.forEach(cat => {
+        const isAberta = categoriasExpandidas.has(cat);
+        
+        let htmlCat = `
+            <div class="categoria-container" draggable="true" ondragstart="iniciarDragCat(event, '${cat}')" ondragover="event.preventDefault(); this.classList.add('drag-over-cat')" ondragleave="this.classList.remove('drag-over-cat')" ondrop="soltarDragCat(event, '${cat}')" ondragend="this.classList.remove('drag-over-cat'); this.style.opacity='1'">
+                <div class="categoria-header" onclick="toggleCategoria('${cat}')">
+                    <h3 style="color:var(--cor-60); margin:0;"><i class="fa-solid fa-folder${isAberta?'-open':''}"></i> ${cat}</h3>
+                    <i class="fa-solid fa-chevron-${isAberta?'up':'down'}" style="color:var(--cor-60);"></i>
+                </div>
+                <div class="categoria-content" style="display: ${isAberta ? 'block' : 'none'}; padding-top: 15px;">`;
+
+        if(grupos[cat]) {
+            grupos[cat].forEach(rec => {
+                let htmlComposicao = '';
+                rec.composicao.forEach(item => {
+                    let custoExibicao = item.custoReal || 0;
+                    if (rec.isKit) {
+                        let recInterna = receitas.find(r => r.id === item.idOriginal);
+                        let emb = embalagens.find(e => e.id === item.idOriginal);
+                        if (recInterna) custoExibicao = recInterna.custos.unitario * item.qtdUsada;
+                        else if (emb) custoExibicao = (emb.preco / emb.qtd) * item.qtdUsada;
+                    }
+                    let nomeExibicao = item.nome || (receitas.find(r=>r.id===item.idOriginal)?.nome) || (embalagens.find(e=>e.id===item.idOriginal)?.nome);
+                    htmlComposicao += `<li><span>${nomeExibicao} (${item.qtdUsada} ${item.unidade || 'un'})</span> <span>R$ ${custoExibicao.toFixed(2).replace('.', ',')}</span></li>`;
+                });
+
+                let lucroUnidade = rec.precoVenda - rec.custos.unitario;
+                let unitTotalArredondado = parseFloat(rec.custos.unitario.toFixed(2));
+                let unitInsumo = parseFloat((rec.custos.insumos / rec.rendimento).toFixed(2));
+                let unitMaoObra = parseFloat((rec.custos.maoDeObra / rec.rendimento).toFixed(2));
+                let unitFixo = +(unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2);
+                
+                if(rec.isKit) { unitInsumo = unitTotalArredondado; unitMaoObra = 0; unitFixo = 0; }
+
+                htmlCat += `
+                <div class="card-receita" draggable="true" ondragstart="iniciarDragReceita(event, '${rec.id}')" ondragend="this.style.opacity='1'" ondragover="event.preventDefault(); event.stopPropagation(); this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="soltarDragReceita(event, '${rec.id}')">
+                    
+                    <div class="card-receita-resumo">
+                        <div class="info-principal">
+                            <h3 style="margin: 0; color: var(--cor-60); margin-bottom: 5px;">${rec.nome} ${rec.isKit?'(KIT)':''}</h3>
+                            <p class="rendimento">Rende: ${rec.rendimento} unidades</p>
+                        </div>
+                        <div class="valores-resumo">
+                            <div class="valor">
+                                <small>Custo Unit.</small>
+                                <span>R$ ${rec.custos.unitario.toFixed(2).replace('.', ',')}</span>
+                            </div>
+                            <div class="valor destaque">
+                                <small>Venda (Unid.)</small>
+                                <span>R$ ${rec.precoVenda.toFixed(2).replace('.', ',')}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-receita-footer">
+                        <div class="card-footer-topo">
+                            <div class="raiox-unitario" style="text-align: left;">
+                                <strong>Raio-X Unitário:</strong> Insumos: R$ ${unitInsumo.toFixed(2).replace('.', ',')} | 
+                                Fixos: R$ ${unitFixo.toFixed(2).replace('.', ',')} | 
+                                Mão de Obra: <span>R$ ${unitMaoObra.toFixed(2).replace('.', ',')}</span>
+                            </div>
+                            <button class="btn-detalhes" onclick="toggleDetalhes(event, '${rec.id}')">
+                                <i class="fa-solid fa-chevron-down"></i> Detalhes
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="detalhes-${rec.id}" class="card-receita-detalhes" style="display: none; cursor: default;" onmousedown="event.stopPropagation()">
+                        <hr>
+                        <h4 style="color: var(--cor-60); margin-bottom: 15px;">Custos Atualizados (Baseados no Estoque Atual)</h4>
+                        <ul class="lista-detalhes">
+                            ${htmlComposicao}
+                            ${!rec.isKit ? `
+                            <li style="color: var(--cor-60); font-weight: bold; background: #f9f9f9; padding: 5px;">
+                                <span>Seu Tempo (${rec.tempo} min)</span> <span>R$ ${rec.custos.maoDeObra.toFixed(2).replace('.', ',')}</span>
+                            </li>
+                            <li style="color: var(--cor-60); font-weight: bold; background: #f9f9f9; padding: 5px;">
+                                <span>Custos Fixos/Invisíveis</span> <span>R$ ${rec.custos.fixo.toFixed(2).replace('.', ',')}</span>
+                            </li>` : ''}
+                        </ul>
+                        <div class="totais-detalhes" style="background-color: var(--cor-30-escuro); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: right;">
+                            <p><strong>Custo Total (Massa):</strong> R$ ${rec.custos.totalMassa.toFixed(2).replace('.', ',')}</p>
+                            <p><strong>Lucro Líquido Real:</strong> <span style="color: ${lucroUnidade >= 0 ? 'var(--cor-10)' : 'red'};">R$ ${lucroUnidade.toFixed(2).replace('.', ',')} (${(rec.margem || 0).toFixed(1)}%)</span></p>
+                        </div>
+                        <div class="acoes-edicao" style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button class="btn-icon" style="background-color: var(--cor-60);" onclick="duplicarReceita(event, '${rec.id}')"><i class="fa-solid fa-copy"></i> Duplicar</button>
+                            <button class="btn-editar" onclick="editarReceitaSalva(event, '${rec.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+                            <button class="btn-excluir" onclick="excluirReceitaUnica(event, '${rec.id}')"><i class="fa-solid fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+        htmlCat += `</div></div>`;
+        container.innerHTML += htmlCat;
+    });
+}
+// DRAG & DROP DE CATEGORIAS
+function iniciarDragCat(event, cat) {
+    dragCatId = cat;
+    event.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => event.target.style.opacity = '0.5', 0);
+}
+
+function soltarDragCat(event, catDestino) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('drag-over-cat');
+    event.currentTarget.style.opacity = '1';
+
+    if (dragCatId && dragCatId !== catDestino && !dragId) {
+        ordemManual = true;
+        let idxOrigem = ordemCategorias.indexOf(dragCatId);
+        let idxDestino = ordemCategorias.indexOf(catDestino);
+        
+        let item = ordemCategorias.splice(idxOrigem, 1)[0];
+        ordemCategorias.splice(idxDestino, 0, item);
+        
+        salvarNoNavegador();
+        atualizarTelaReceitas();
+    }
+    dragCatId = null;
+}
+
+// DRAG & DROP DE RECEITAS
+function iniciarDragReceita(event, id) {
+    event.stopPropagation(); 
+    dragId = id;
+    dragCatId = null; 
+    setTimeout(() => event.target.style.opacity = '0.5', 0);
+}
+
+function soltarDragReceita(event, idDestino) {
+    event.preventDefault();
+    event.stopPropagation(); 
+    event.currentTarget.classList.remove('drag-over');
+    event.currentTarget.style.opacity = '1';
+
+    if(dragId && dragId !== idDestino) {
+        const idxOrigem = receitas.findIndex(r => r.id === dragId);
+        const idxDestino = receitas.findIndex(r => r.id === idDestino);
+        
+        const item = receitas.splice(idxOrigem, 1)[0];
+        receitas.splice(idxDestino, 0, item);
+        
+        receitas[idxDestino].categoria = receitas[idxDestino===0 ? 1 : idxDestino-1].categoria;
+        
+        salvarNoNavegador();
+        atualizarTelaReceitas();
+    }
+    dragId = null;
+}
+
+function toggleDetalhes(event, id) {
+    event.stopPropagation();
+    const divDetalhes = document.getElementById(`detalhes-${id}`);
+    if(divDetalhes) {
+        divDetalhes.style.display = divDetalhes.style.display === 'none' ? 'block' : 'none';
     }
 }
 
-function excluirReceita(id) {
+function excluirReceitaUnica(event, id) {
+    event.stopPropagation(); 
     if(confirm("Tem certeza que deseja apagar esta receita definitivamente?")) {
         receitas = receitas.filter(r => r.id !== id);
         salvarNoNavegador();
@@ -645,73 +860,87 @@ function excluirReceita(id) {
     }
 }
 
-function editarReceitaSalva(id) {
-    const rec = receitas.find(r => r.id === id);
-    if(!rec) return;
-
-    let hiddenId = document.getElementById('rec-id-edit');
-    if(!hiddenId) {
-        hiddenId = document.createElement('input');
-        hiddenId.type = 'hidden';
-        hiddenId.id = 'rec-id-edit';
-        document.getElementById('nova-receita').appendChild(hiddenId);
-    }
-    hiddenId.value = rec.id;
-
-    document.getElementById('rec-nome').value = rec.nome;
-    document.getElementById('rec-categoria').value = rec.categoria || ''; 
-    document.getElementById('rec-rendimento').value = rec.rendimento;
-    document.getElementById('rec-tempo').value = rec.tempo;
-    document.getElementById('rec-margem').value = rec.margem;
-    document.getElementById('rec-preco-venda').value = rec.precoVenda;
-
-    receitaAtualComposicao = [...rec.composicao];
-    openTab('nova-receita');
-    renderizarComposicaoReceita();
-    calcularCustosDaReceita();
-}
-
-function duplicarReceita(id) {
+function duplicarReceita(event, id) {
+    event.stopPropagation();
     const rec = receitas.find(r => r.id === id);
     if(!rec) return;
 
     const novaReceita = JSON.parse(JSON.stringify(rec)); 
-    
-    novaReceita.id = 'rec_' + Date.now().toString();
+    novaReceita.id = (novaReceita.isKit ? 'kit_' : 'rec_') + Date.now().toString();
     novaReceita.nome = novaReceita.nome + ' (Cópia)';
 
     receitas.push(novaReceita);
     salvarNoNavegador();
     atualizarTelaReceitas();
-    alert("Receita duplicada com sucesso! Você já pode editá-la.");
+    alert("Receita duplicada com sucesso!");
 }
 
-function moverReceita(id, direcao) {
-    const indexGeral = receitas.findIndex(r => r.id === id);
-    if (indexGeral === -1) return;
+function editarReceitaSalva(event, id) {
+    event.stopPropagation();
+    const rec = receitas.find(r => r.id === id);
+    if(!rec) return;
 
-    const cat = receitas[indexGeral].categoria || 'Outros';
-    
-    const receitasDaCat = receitas.filter(r => (r.categoria || 'Outros') === cat);
-    const indexNaCat = receitasDaCat.findIndex(r => r.id === id);
+    if (rec.isKit) {
+        document.getElementById('kit-id-edit').value = rec.id;
+        document.getElementById('kit-nome').value = rec.nome;
+        document.getElementById('kit-categoria').value = rec.categoria || ''; 
+        document.getElementById('kit-margem').value = rec.margem;
+        document.getElementById('kit-preco').value = rec.precoVenda;
+        kitAtualComposicao = [...rec.composicao];
+        openTab('kits');
+        calcularCustosKit();
+    } else {
+        let hiddenId = document.getElementById('rec-id-edit');
+        if(!hiddenId) {
+            hiddenId = document.createElement('input');
+            hiddenId.type = 'hidden';
+            hiddenId.id = 'rec-id-edit';
+            document.getElementById('nova-receita').appendChild(hiddenId);
+        }
+        hiddenId.value = rec.id;
 
-    if (direcao === 'up' && indexNaCat > 0) {
-        const idTroca = receitasDaCat[indexNaCat - 1].id;
-        const indexTroca = receitas.findIndex(r => r.id === idTroca);
-        
-        const temp = receitas[indexGeral];
-        receitas[indexGeral] = receitas[indexTroca];
-        receitas[indexTroca] = temp;
-        
-    } else if (direcao === 'down' && indexNaCat < receitasDaCat.length - 1) {
-        const idTroca = receitasDaCat[indexNaCat + 1].id;
-        const indexTroca = receitas.findIndex(r => r.id === idTroca);
-        
-        const temp = receitas[indexGeral];
-        receitas[indexGeral] = receitas[indexTroca];
-        receitas[indexTroca] = temp;
+        document.getElementById('rec-nome').value = rec.nome;
+        document.getElementById('rec-categoria').value = rec.categoria || ''; 
+        document.getElementById('rec-rendimento').value = rec.rendimento;
+        document.getElementById('rec-tempo').value = rec.tempo;
+        document.getElementById('rec-margem').value = rec.margem;
+        document.getElementById('rec-preco-venda').value = rec.precoVenda;
+
+        receitaAtualComposicao = [...rec.composicao];
+        openTab('nova-receita');
+        calcularCustosDaReceita();
     }
+}
+
+// -----------------------------------------------------
+// 8. AJUSTE DE MARGEM EM LOTE
+// -----------------------------------------------------
+function preencherSelectLote() {
+    const sel = document.getElementById('lote-categoria');
+    if(!sel) return;
+    let cats = new Set(receitas.map(r => r.categoria || 'Geral'));
+    sel.innerHTML = '<option value="TODAS">Todas as Categorias</option>';
+    cats.forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
+}
+
+function aplicarMargemEmLote() {
+    const cat = document.getElementById('lote-categoria').value;
+    const novaMargem = parseFloat(document.getElementById('lote-margem').value);
+    
+    if(!novaMargem) return alert("Digite uma margem válida.");
+    if(!confirm(`Deseja aplicar ${novaMargem}% de lucro a todos os produtos de: ${cat}?`)) return;
+
+    receitas.forEach(rec => {
+        if(cat === 'TODAS' || (rec.categoria || 'Geral') === cat) {
+            rec.margem = novaMargem;
+            let custoBase = rec.custos ? rec.custos.unitario : 0;
+            if(custoBase > 0) {
+                rec.precoVenda = custoBase * (1 + (novaMargem / 100));
+            }
+        }
+    });
 
     salvarNoNavegador();
     atualizarTelaReceitas();
+    alert("Margens atualizadas em lote com sucesso!");
 }
