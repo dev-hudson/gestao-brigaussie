@@ -82,6 +82,7 @@ async function entrarComEmail() {
 }
 
 async function entrarComGoogle() {
+    console.log("Botão do Google foi clicado!"); // Adicionado para rastrear
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({
@@ -89,7 +90,7 @@ async function entrarComGoogle() {
         });
         await window.auth.signInWithPopup(provider);
     } catch (error) {
-        console.error("Erro no pop-up do Google:", error);
+        console.error("Erro detalhado do Google:", error);
         alert("Erro no login com Google: " + error.message);
     }
 }
