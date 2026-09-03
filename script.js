@@ -8,20 +8,12 @@ const firebaseConfig = {
     appId: "1:1075009848995:web:9cceeb4182c61f3235e116"
 };
 
-firebase.initializeApp(firebaseConfig);
+// Inicializa o app e cria um alias global seguro
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const auth = firebase.auth();
-
-// 2. MONITOR DE LOGIN (Troca a barra superior automaticamente)
-auth.onAuthStateChanged(user => {
-    if (user) {
-        document.getElementById('auth-logged-out').style.display = 'none';
-        document.getElementById('auth-logged-in').style.display = 'flex';
-        document.getElementById('user-display').innerText = user.email;
-    } else {
-        document.getElementById('auth-logged-out').style.display = 'flex';
-        document.getElementById('auth-logged-in').style.display = 'none';
-    }
-});
+window.auth = auth; // <- Isso blinda o código contra qualquer erro de escopo
 
 // 3. FUNÇÕES DE AUTENTICAÇÃO
 async function criarContaEmail() {
