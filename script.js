@@ -38,8 +38,10 @@ async function entrarComEmail() {
 
 async function entrarComGoogle() {
     try {
+        // Usa diretamente o namespace global do Firebase carregado no HTML
         const provider = new firebase.auth.GoogleAuthProvider();
-        await window.auth.signInWithPopup(provider);
+        const authInstance = window.auth || firebase.auth();
+        await authInstance.signInWithPopup(provider);
     } catch (error) {
         alert("Erro no login com Google: " + error.message);
     }
