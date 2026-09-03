@@ -86,7 +86,7 @@ async function entrarComGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         await window.auth.signInWithRedirect(provider);
     } catch (error) {
-        alert("Erro ao iniciar login com Google: " + error.message);
+        alert("Erro no login com Google: " + error.message);
     }
 }
 
