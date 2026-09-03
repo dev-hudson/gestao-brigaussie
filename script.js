@@ -16,29 +16,48 @@ const auth = firebase.auth();
 window.auth = auth; // <- Isso blinda o código contra qualquer erro de escopo
 
 // 3. FUNÇÕES DE AUTENTICAÇÃO
+// 3. FUNÇÕES DE AUTENTICAÇÃO CORRIGIDAS
 async function criarContaEmail() {
-    const email = document.getElementById('auth-email').value.trim();
-    const senha = document.getElementById('auth-senha').value.trim();
-    if (!email || !senha) {
-        alert("Preencha o e-mail e a senha para cadastrar.");
+    const emailInput = document.getElementById('auth-email');
+    const senhaInput = document.getElementById('auth-senha');
+    
+    if (!emailInput || !senhaInput) {
+        alert("Erro crítico: Elementos de input não encontrados no HTML.");
         return;
     }
+
+    const email = emailInput.value.trim();
+    const senha = senhaInput.value.trim();
+
+    if (!email || !senha) {
+        alert("Por favor, preencha o e-mail e a senha.");
+        return;
+    }
+
     try {
-        await auth.createUserWithEmailAndPassword(email, senha);
+        await window.auth.createUserWithEmailAndPassword(email, senha);
+        alert("Conta criada e logada com sucesso!");
     } catch (error) {
         alert("Erro ao criar conta: " + error.message);
     }
 }
 
 async function entrarComEmail() {
-    const email = document.getElementById('auth-email').value.trim();
-    const senha = document.getElementById('auth-senha').value.trim();
+    const emailInput = document.getElementById('auth-email');
+    const senhaInput = document.getElementById('auth-senha');
+    
+    if (!emailInput || !senhaInput) return;
+
+    const email = emailInput.value.trim();
+    const senha = senhaInput.value.trim();
+
     if (!email || !senha) {
-        alert("Preencha o e-mail e a senha para entrar.");
+        alert("Por favor, preencha o e-mail e a senha.");
         return;
     }
+
     try {
-        await auth.signInWithEmailAndPassword(email, senha);
+        await window.auth.signInWithEmailAndPassword(email, senha);
     } catch (error) {
         alert("Erro ao entrar: Verifique e-mail e senha.");
     }
@@ -47,16 +66,19 @@ async function entrarComEmail() {
 async function entrarComGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        const authInstance = window.auth || firebase.auth();
-        // Redireciona a página inteira para o Google, eliminando o bug da janelinha que some
-        await authInstance.signInWithRedirect(provider);
+        // Força o uso explícito da instância global do auth via popup
+        await window.auth.signInWithPopup(provider);
     } catch (error) {
-        alert("Erro no login com Google: " + error.message);
+        alert("Erro no login com Google: " + error.code + " - " + error.message);
     }
 }
 
 async function fazerLogout() {
-    await auth.signOut();
+    try {
+        await window.auth.signOut();
+    } catch (error) {
+        console.error("Erro ao sair:", error);
+    }
 }
 
 // ====== VARIÁVEIS GERAIS ======
