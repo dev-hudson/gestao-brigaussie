@@ -116,7 +116,10 @@ let dragId = null;
 
 // ====== INICIALIZAÇÃO ======
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('user-email').value = emailAuth;
+    const userEmailInput = document.getElementById('user-email');
+    if (userEmailInput) {
+        userEmailInput.value = emailAuth;
+    }
     carregarDadosLocal();
 });
 
