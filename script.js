@@ -84,14 +84,12 @@ async function entrarComEmail() {
 async function entrarComGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        
-        // FORÇA O GOOGLE A LIMPAR O CACHE E EXIBIR A TELA DE SELEÇÃO DE CONTA
         provider.setCustomParameters({
             prompt: 'select_account'
         });
-
-        await window.auth.signInWithRedirect(provider);
+        await window.auth.signInWithPopup(provider);
     } catch (error) {
+        console.error("Erro no pop-up do Google:", error);
         alert("Erro no login com Google: " + error.message);
     }
 }
