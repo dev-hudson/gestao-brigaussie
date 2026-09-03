@@ -1,15 +1,13 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict, Any
-import firebase_admin
-from firebase_admin import credentials, firestore
 import os
 import json
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
+import firebase_admin
+from firebase_admin import credentials, firestore, auth
 
-# Inicialização do Firebase Admin SDK
-# Se houver uma variável de ambiente com a chave (ideal para o Render), usa ela. 
-# Caso contrário, procura o arquivo local 'serviceAccountKey.json'.
+# Inicializa o Firebase Admin usando a variável de ambiente segura do Render
 if not firebase_admin._apps:
     firebase_key_json = os.environ.get("FIREBASE_KEY_JSON")
     if firebase_key_json:
@@ -21,9 +19,11 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+security = HTTPBearer()
 
-app = FastAPI(title="Backend - Precificador Confeitaria (Firebase)")
+app = FastAPI()
 
+# Configuração de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,29 +32,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class SyncData(BaseModel):
-    email: str
-    dados: Dict[str, Any]
+class SyncRequest(BaseModel):
+    dados: dict
 
+# Rota para SALVAR os dados do usuário logado
 @app.post("/api/sync")
-def salvar_nuvem(sync_data: SyncData):
+def sync_data(
+    payload: SyncRequest, 
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
     try:
-        # Usa o e-mail como ID do documento na coleção 'usuarios'
-        doc_ref = db.collection("usuarios").document(sync_data.email)
-        doc_ref.set({"dados": sync_data.dados})
-        return {"status": "success", "message": "Dados salvos na nuvem com sucesso!"}
+        decoded_token = auth.verify_id_token(token)
+        user_email = decoded_token.get("email")
+        
+        if not user_email:
+            raise HTTPException(status_code=400, detail="E-mail não encontrado no token.")
+            
+        doc_ref = db.collection("usuarios").document(user_email)
+        doc_ref.set({"dados": payload.dados})
+        
+        return {"status": "sucesso", "email": user_email}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=401, detail=f"Erro de autenticação: {str(e)}")
 
-@app.get("/api/sync/{email}")
-def carregar_nuvem(email: str):
+# Rota para PUXAR os dados do usuário logado
+@app.get("/api/dados")
+def get_dados(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
     try:
-        doc_ref = db.collection("usuarios").document(email)
+        decoded_token = auth.verify_id_token(token)
+        user_email = decoded_token.get("email")
+        
+        if not user_email:
+            raise HTTPException(status_code=400, detail="E-mail não encontrado no token.")
+            
+        doc_ref = db.collection("usuarios").document(user_email)
         doc = doc_ref.get()
+        
         if doc.exists:
-            return {"status": "success", "dados": doc.to_dict().get("dados")}
-        raise HTTPException(status_code=404, detail="Nenhum backup encontrado para este e-mail.")
+            return {"dados": doc.to_dict().get("dados", {})}
+        else:
+            return {"dados": {}}
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=401, detail=f"Erro de autenticação: {str(e)}")
+
+@app.get("/")
+def read_root():
+    return {"message": "API Brigaussie rodando com segurança e Firebase Auth!"}

@@ -1,3 +1,62 @@
+// 1. CONFIGURAÇÃO E INICIALIZAÇÃO DO FIREBASE
+const firebaseConfig = {
+    apiKey: "AIzaSyCx-RmdAAEn0j_f2ovkKsxSp9lym4KbiVw",
+    authDomain: "brigaussie-precificador.firebaseapp.com",
+    projectId: "brigaussie-precificador",
+    storageBucket: "brigaussie-precificador.firebasestorage.app",
+    messagingSenderId: "1075009848995",
+    appId: "1:1075009848995:web:9cceeb4182c61f3235e116"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+// 2. MONITOR DE LOGIN (Troca a barra superior automaticamente)
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById('auth-logged-out').style.display = 'none';
+        document.getElementById('auth-logged-in').style.display = 'flex';
+        document.getElementById('user-display').innerText = user.email;
+    } else {
+        document.getElementById('auth-logged-out').style.display = 'flex';
+        document.getElementById('auth-logged-in').style.display = 'none';
+    }
+});
+
+// 3. FUNÇÕES DE AUTENTICAÇÃO
+async function criarContaEmail() {
+    const email = document.getElementById('auth-email').value;
+    const senha = document.getElementById('auth-senha').value;
+    try {
+        await auth.createUserWithEmailAndPassword(email, senha);
+    } catch (error) {
+        alert("Erro ao criar conta: " + error.message);
+    }
+}
+
+async function entrarComEmail() {
+    const email = document.getElementById('auth-email').value;
+    const senha = document.getElementById('auth-senha').value;
+    try {
+        await auth.signInWithEmailAndPassword(email, senha);
+    } catch (error) {
+        alert("Erro ao entrar: Verifique e-mail e senha.");
+    }
+}
+
+async function entrarComGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+        await auth.signInWithPopup(provider);
+    } catch (error) {
+        alert("Erro no login com Google: " + error.message);
+    }
+}
+
+async function fazerLogout() {
+    await auth.signOut();
+}
+
 // ====== VARIÁVEIS GERAIS ======
 let configuracoes = { salario: 0, horas: 0, taxaFixa: 0, valorHora: 0 };
 let ingredientes = [];
@@ -38,44 +97,86 @@ function setAuthEmail(email) {
 }
 
 async function sincronizarNuvem() {
-    if(!emailAuth) return alert("Insira um e-mail para salvar na nuvem.");
-    const dados = { configuracoes, ingredientes, embalagens, receitas, ordemCategorias, ordemManual };
+    const user = auth.currentUser;
+    if (!user) return alert("Faça login para salvar na nuvem.");
+
+    document.getElementById("cloud-status").innerText = "Salvando...";
+    
     try {
+        const token = await user.getIdToken();
+        
+        // Mapeamento exato das suas variáveis globais
+        const dados = {
+            receitas: receitas || [],
+            ingredientes: ingredientes || [],
+            embalagens: embalagens || [],
+            configuracoes: configuracoes || {},
+            ordemCategorias: ordemCategorias || [],
+            ordemManual: ordemManual || false
+        };
+
         const res = await fetch('https://brigaussie-api.onrender.com/api/sync', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: emailAuth, dados })
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ dados })
         });
-        const json = await res.json();
-        document.getElementById('cloud-status').innerText = "Salvo 🟢";
-        setTimeout(()=> document.getElementById('cloud-status').innerText = "", 3000);
-    } catch(e) {
-        alert("Erro ao salvar na nuvem. Verifique se o backend Python está rodando no terminal.");
+
+        if (res.ok) {
+            document.getElementById("cloud-status").innerText = "Salvo na nuvem!";
+            setTimeout(() => document.getElementById("cloud-status").innerText = "", 3000);
+        } else {
+            throw new Error("Erro no backend");
+        }
+    } catch (erro) {
+        document.getElementById("cloud-status").innerText = "Erro ao salvar";
     }
 }
 
 async function baixarNuvem() {
-    if(!emailAuth) return alert("Insira seu e-mail.");
+    const user = auth.currentUser;
+    if (!user) return alert("Faça login para puxar os dados.");
+
+    document.getElementById("cloud-status").innerText = "Baixando...";
+    
     try {
-        const res = await fetch(`http://localhost:8000/api/sync/${emailAuth}`);
-        if(res.ok) {
+        const token = await user.getIdToken();
+        
+        const res = await fetch('https://brigaussie-api.onrender.com/api/dados', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
             const json = await res.json();
-            if (json.dados) {
-                configuracoes = json.dados.configuracoes || configuracoes;
-                ingredientes = json.dados.ingredientes || [];
-                embalagens = json.dados.embalagens || [];
-                receitas = json.dados.receitas || [];
-                ordemCategorias = json.dados.ordemCategorias || [];
-                ordemManual = json.dados.ordemManual || false;
-                salvarNoNavegador();
-                carregarDadosLocal();
-                alert("Dados restaurados com sucesso da nuvem!");
-            }
-        } else { 
-            alert("Nenhum backup encontrado na nuvem para este e-mail. Seus dados locais foram preservados."); 
+            const dados = json.dados || {};
+
+            // Substitui as variáveis locais pelo que veio do banco de dados
+            if (dados.receitas) receitas = dados.receitas;
+            if (dados.ingredientes) ingredientes = dados.ingredientes;
+            if (dados.embalagens) embalagens = dados.embalagens;
+            if (dados.configuracoes) configuracoes = dados.configuracoes;
+            if (dados.ordemCategorias) ordemCategorias = dados.ordemCategorias;
+            if (dados.ordemManual !== undefined) ordemManual = dados.ordemManual;
+
+            // Salva fisicamente no navegador para não perder ao fechar a aba
+            salvarNoNavegador();
+
+            // Atualiza todas as abas da tela dinamicamente, sem F5
+            atualizarTelaConfiguracoes();
+            atualizarTabelaIngredientes();
+            atualizarTabelaEmbalagens();
+            atualizarSelects();
+            atualizarTelaReceitas();
+            preencherSelectLote();
+            
+            document.getElementById("cloud-status").innerText = "Dados carregados!";
+            setTimeout(() => document.getElementById("cloud-status").innerText = "", 3000);
         }
-    } catch(e) { 
-        alert("Erro de conexão com o servidor Python. Verifique se o terminal com o Uvicorn está rodando."); 
+    } catch (erro) {
+        document.getElementById("cloud-status").innerText = "Erro ao puxar dados";
     }
 }
 

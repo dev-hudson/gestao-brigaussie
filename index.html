@@ -10,14 +10,28 @@
 <body>
 
     <!-- Barra de Autenticação / Cloud -->
-    <div class="cloud-bar" id="cloud-bar">
-        <span><i class="fa-solid fa-cloud"></i> Salvar na Nuvem:</span>
-        <input type="email" id="user-email" placeholder="Seu e-mail de acesso" onchange="setAuthEmail(this.value)">
-        <button class="btn-icon-small" onclick="sincronizarNuvem()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync</button>
-        <button class="btn-icon-small" onclick="baixarNuvem()"><i class="fa-solid fa-cloud-arrow-down"></i> Puxar Dados</button>
-        <span id="cloud-status" style="font-size: 0.8rem; margin-left: 10px;"></span>
-    </div>
+    <div class="cloud-bar" id="cloud-bar" style="display: flex; justify-content: space-between;">
+        
+        <!-- Visível quando NÃO está logado -->
+        <div id="auth-logged-out" style="display: flex; gap: 8px; align-items: center;">
+            <span><i class="fa-solid fa-lock"></i> Acesso:</span>
+            <input type="email" id="auth-email" placeholder="E-mail">
+            <input type="password" id="auth-senha" placeholder="Senha">
+            <button class="btn-icon-small" onclick="entrarComEmail()">Entrar</button>
+            <button class="btn-icon-small" onclick="criarContaEmail()">Cadastrar</button>
+            <button class="btn-icon-small" onclick="entrarComGoogle()" style="background-color: #4285F4; color: white;"><i class="fa-brands fa-google"></i> Google</button>
+        </div>
 
+        <!-- Visível quando ESTÁ logado -->
+        <div id="auth-logged-in" style="display: none; gap: 8px; align-items: center;">
+            <span><i class="fa-solid fa-user-check"></i> <strong id="user-display"></strong></span>
+            <button class="btn-icon-small" onclick="sincronizarNuvem()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync</button>
+            <button class="btn-icon-small" onclick="baixarNuvem()"><i class="fa-solid fa-cloud-arrow-down"></i> Puxar Dados</button>
+            <button class="btn-icon-small" onclick="fazerLogout()" style="background-color: #555; color: white;">Sair</button>
+            <span id="cloud-status" style="font-size: 0.8rem; margin-left: 10px;"></span>
+        </div>
+        
+    </div>
     <header>
         <div class="logo">
             <i class="fa-solid fa-cake-candles"></i>
@@ -233,5 +247,8 @@
     </main>
 
     <script src="script.js"></script>
+    <!-- SDK do Firebase (Core e Auth) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 </body>
 </html>
