@@ -8,15 +8,33 @@ const firebaseConfig = {
     appId: "1:1075009848995:web:9cceeb4182c61f3235e116"
 };
 
-// Inicializa o app e cria um alias global seguro
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const auth = firebase.auth();
-window.auth = auth; // <- Isso blinda o código contra qualquer erro de escopo
+window.auth = auth;
+
+// CAPTURA O RESULTADO DO REDIRECIONAMENTO DO GOOGLE
+auth.getRedirectResult().catch((error) => {
+    console.error("Erro no redirect do Google:", error);
+    alert("Erro no login com Google: " + error.message);
+});
+
+// MONITOR DE LOGIN
+window.auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById('auth-logged-out').style.display = 'none';
+        document.getElementById('auth-logged-in').style.display = 'flex';
+        document.getElementById('user-display').innerText = user.email;
+        // Salva o e-mail localmente para referência
+        setAuthEmail(user.email);
+    } else {
+        document.getElementById('auth-logged-out').style.display = 'flex';
+        document.getElementById('auth-logged-in').style.display = 'none';
+    }
+});
 
 // 3. FUNÇÕES DE AUTENTICAÇÃO
-// 3. FUNÇÕES DE AUTENTICAÇÃO CORRIGIDAS
 async function criarContaEmail() {
     const emailInput = document.getElementById('auth-email');
     const senhaInput = document.getElementById('auth-senha');
@@ -66,10 +84,9 @@ async function entrarComEmail() {
 async function entrarComGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        // Força o uso explícito da instância global do auth via popup
-        await window.auth.signInWithPopup(provider);
+        await window.auth.signInWithRedirect(provider);
     } catch (error) {
-        alert("Erro no login com Google: " + error.code + " - " + error.message);
+        alert("Erro ao iniciar login com Google: " + error.message);
     }
 }
 
