@@ -37,9 +37,9 @@ async function entrarComEmail() {
 }
 
 async function entrarComGoogle() {
-    const provider = new firebase.auth.GoogleAuthProvider();
     try {
-        await auth.signInWithPopup(provider);
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await window.auth.signInWithPopup(provider);
     } catch (error) {
         alert("Erro no login com Google: " + error.message);
     }
