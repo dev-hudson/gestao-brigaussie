@@ -119,7 +119,6 @@
         </header>
 
         <main>
-        <main>
             <!-- ABA: Receitas -->
             <section id="receitas" class="tab-content active">
                 <div class="header-section">
@@ -314,6 +313,7 @@
                     </div>
                 </div>
             </section>
+
             <!-- ABA: Acerto de Caixa -->
             <section id="acerto-caixa" class="tab-content">
                 <div class="header-section">
@@ -321,79 +321,117 @@
                     <p>Calcule a divisão exata dos lucros e custos do dia entre a Empresa (CNPJ) e Você (CPF).</p>
                 </div>
 
-                <div class="form-container" style="border-left-color: #27ae60;">
-                    <div class="form-linha">
-                        <div class="input-group">
-                            <label>Data da Venda</label>
-                            <input type="date" id="acerto-data">
-                        </div>
-                        <div class="input-group">
-                            <label>Faturamento Total (R$)</label>
-                            <input type="number" id="acerto-faturamento" placeholder="Dinheiro real que entrou" step="0.01">
-                        </div>
-                        <div class="input-group">
-                            <label>Lucro da Empresa (%)</label>
-                            <input type="number" id="acerto-porcentagem" placeholder="Ex: 30" value="30">
-                        </div>
-                    </div>
+                <!-- SUB-ABAS INTERNAS -->
+                <div class="auth-tabs" style="margin-bottom: 20px;">
+                    <button id="subtab-novo" class="active" onclick="mudarSubTabAcerto('novo')">Novo Acerto</button>
+                    <button id="subtab-historico" onclick="mudarSubTabAcerto('historico'); renderizarHistoricoAcertos();">Histórico Salvo</button>
                 </div>
 
-                <div class="form-container">
-                    <h3>1. Produtos Vendidos</h3>
-                    <div class="form-linha">
-                        <div class="input-group" style="flex: 2;">
+                <!-- CONTEÚDO: NOVO ACERTO -->
+                <div id="conteudo-novo-acerto">
+                    <div class="form-container" style="border-left-color: #27ae60;">
+                        <div class="form-linha">
+                            <div class="input-group">
+                                <label>Data da Venda</label>
+                                <input type="date" id="acerto-data">
+                            </div>
+                            <div class="input-group">
+                                <label>Faturamento Total (R$)</label>
+                                <input type="number" id="acerto-faturamento" placeholder="Dinheiro real que entrou" step="0.01">
+                            </div>
+                            <div class="input-group">
+                                <label>Lucro da Empresa (%)</label>
+                                <input type="number" id="acerto-porcentagem" placeholder="Ex: 30" value="30">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-container">
+                        <h3>1. Produtos Vendidos</h3>
+                        
+                        <!-- SELETOR PERSONALIZADO COM PASTAS E SETAS LATERAIS -->
+                        <div class="input-group" style="position: relative;">
                             <label>Receita ou Kit</label>
-                            <select id="acerto-produto-select"></select>
+                            <div class="custom-select-trigger" id="acerto-trigger" onclick="toggleDropdownAcerto()">
+                                <span id="acerto-trigger-text">-- Escolha Receita ou Kit --</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </div>
+                            <input type="hidden" id="acerto-prod-id">
+                            <input type="hidden" id="acerto-prod-tipo">
+                            
+                            <div id="acerto-dropdown-painel" class="dropdown-painel-personalizado" style="display: none;">
+                                <!-- Categorias injetadas via JS -->
+                            </div>
                         </div>
-                        <div class="input-group">
-                            <label>Quantidade</label>
-                            <input type="number" id="acerto-produto-qtd" placeholder="Qtd">
-                        </div>
-                        <button class="btn-salvar" onclick="addProdutoAcerto()"><i class="fa-solid fa-plus"></i> Add</button>
-                    </div>
-                    <ul class="lista-detalhes" id="lista-acerto-produtos"></ul>
 
-                    <h3 style="margin-top: 20px;">2. Embalagens (Extras/Transporte)</h3>
-                    <div class="form-linha">
-                        <div class="input-group" style="flex: 2;">
-                            <label>Embalagem</label>
-                            <select id="acerto-embalagem-select"></select>
+                        <div class="form-linha" style="margin-top: 15px; align-items: flex-end;">
+                            <div class="input-group">
+                                <label>Quantidade</label>
+                                <input type="number" id="acerto-produto-qtd" placeholder="Qtd">
+                            </div>
+                            <button class="btn-salvar" onclick="addProdutoAcerto()"><i class="fa-solid fa-plus"></i> Add</button>
                         </div>
-                        <div class="input-group">
-                            <label>Quantidade</label>
-                            <input type="number" id="acerto-embalagem-qtd" placeholder="Qtd">
+                        
+                        <ul class="lista-detalhes" id="lista-acerto-produtos" style="margin-top: 20px;"></ul>
+
+                        <h3 style="margin-top: 30px;">2. Embalagens (Extras/Transporte)</h3>
+                        <div class="form-linha">
+                            <div class="input-group" style="flex: 2;">
+                                <label>Embalagem</label>
+                                <select id="acerto-embalagem-select"></select>
+                            </div>
+                            <div class="input-group">
+                                <label>Quantidade</label>
+                                <input type="number" id="acerto-embalagem-qtd" placeholder="Qtd">
+                            </div>
+                            <button class="btn-salvar" onclick="addEmbalagemAcerto()"><i class="fa-solid fa-plus"></i> Add</button>
                         </div>
-                        <button class="btn-salvar" onclick="addEmbalagemAcerto()"><i class="fa-solid fa-plus"></i> Add</button>
+                        <ul class="lista-detalhes" id="lista-acerto-embalagens"></ul>
+                        
+                        <button class="btn-salvar" style="background: #27ae60; margin-top: 25px; width: 100%; font-size: 1.1rem; padding: 15px;" onclick="calcularAcertoCaixa()">
+                            <i class="fa-solid fa-calculator"></i> Calcular
+                        </button>
                     </div>
-                    <ul class="lista-detalhes" id="lista-acerto-embalagens"></ul>
-                    
-                    <button class="btn-salvar" style="background: #27ae60; margin-top: 20px; width: 100%; font-size: 1.1rem; padding: 15px;" onclick="calcularAcertoCaixa()">
-                        <i class="fa-solid fa-calculator"></i> Calcular
-                    </button>
+
+                    <div class="resultado-acerto" id="painel-resultado-acerto" style="display: none; flex-direction: column; gap: 15px;">
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="card-resultado card-geral" style="flex: 1; min-width: 250px;">
+                                <h3>Raio-X da Venda</h3>
+                                <p>Custo Produção (Insumos + MO): <strong id="res-acerto-producao">R$ 0,00</strong></p>
+                                <p>Custo Embalagens: <strong id="res-acerto-embalagens">R$ 0,00</strong></p>
+                                <hr>
+                                <p><strong>Custo Total da Saída:</strong> <strong id="res-acerto-custototal">R$ 0,00</strong></p>
+                                <p><strong>Lucro Líquido:</strong> <strong id="res-acerto-lucroliquido">R$ 0,00</strong></p>
+                            </div>
+                            
+                            <div class="card-resultado card-cpf" style="flex: 1; min-width: 250px;">
+                                <h3><i class="fa-solid fa-wallet"></i> Seu Bolso (CPF)</h3>
+                                <h2 id="res-acerto-cpf">R$ 0,00</h2>
+                                <p style="font-size: 0.85rem; margin-top: 10px;">Pró-labore: <span id="res-acerto-prolabore">R$ 0,00</span></p>
+                                <p style="font-size: 0.85rem;">Participação Lucro: <span id="res-acerto-lucro-cpf">R$ 0,00</span></p>
+                            </div>
+
+                            <div class="card-resultado card-cnpj" style="flex: 1; min-width: 250px;">
+                                <h3><i class="fa-solid fa-building-columns"></i> Caixa Empresa (CNPJ)</h3>
+                                <h2 id="res-acerto-cnpj">R$ 0,00</h2>
+                                <p style="font-size: 0.85rem; margin-top: 10px;">Reposição (Insumos/Emb): <span id="res-acerto-reposicao">R$ 0,00</span></p>
+                                <p style="font-size: 0.85rem;">Participação Lucro: <span id="res-acerto-lucro-cnpj">R$ 0,00</span></p>
+                            </div>
+                        </div>
+
+                        <button class="btn-salvar" style="background: #2980b9; width: 100%; font-size: 1.1rem; padding: 15px;" onclick="salvarAcertoNoHistorico()">
+                            <i class="fa-solid fa-floppy-disk"></i> Salvar no Histórico
+                        </button>
+                    </div>
                 </div>
 
-                <div class="resultado-acerto" id="painel-resultado-acerto" style="display: none;">
-                    <div class="card-resultado card-geral">
-                        <h3>Raio-X da Venda</h3>
-                        <p>Custo Produção (Insumos + MO): <strong id="res-acerto-producao">R$ 0,00</strong></p>
-                        <p>Custo Embalagens: <strong id="res-acerto-embalagens">R$ 0,00</strong></p>
-                        <hr>
-                        <p><strong>Custo Total da Saída:</strong> <strong id="res-acerto-custototal">R$ 0,00</strong></p>
-                        <p><strong>Lucro Líquido:</strong> <strong id="res-acerto-lucroliquido">R$ 0,00</strong></p>
-                    </div>
-                    
-                    <div class="card-resultado card-cpf">
-                        <h3><i class="fa-solid fa-wallet"></i> Seu Bolso (CPF)</h3>
-                        <h2 id="res-acerto-cpf">R$ 0,00</h2>
-                        <p style="font-size: 0.85rem; margin-top: 10px;">Pró-labore: <span id="res-acerto-prolabore">R$ 0,00</span></p>
-                        <p style="font-size: 0.85rem;">Participação Lucro: <span id="res-acerto-lucro-cpf">R$ 0,00</span></p>
-                    </div>
-
-                    <div class="card-resultado card-cnpj">
-                        <h3><i class="fa-solid fa-building-columns"></i> Caixa Empresa (CNPJ)</h3>
-                        <h2 id="res-acerto-cnpj">R$ 0,00</h2>
-                        <p style="font-size: 0.85rem; margin-top: 10px;">Reposição (Insumos/Emb): <span id="res-acerto-reposicao">R$ 0,00</span></p>
-                        <p style="font-size: 0.85rem;">Participação Lucro: <span id="res-acerto-lucro-cnpj">R$ 0,00</span></p>
+                <!-- CONTEÚDO: HISTÓRICO DE ACERTOS -->
+                <div id="conteudo-historico-acerto" style="display: none;">
+                    <div class="form-container">
+                        <h3>Histórico de Acertos Salvos</h3>
+                        <div id="lista-historico-acertos" style="margin-top: 15px;">
+                            <p style="color: #666; text-align: center;">Nenhum acerto salvo no histórico ainda.</p>
+                        </div>
                     </div>
                 </div>
             </section>

@@ -28,26 +28,20 @@ function alternarAbaLogin(aba) {
     }
 }
 
-// ====== MONITOR DE LOGIN (ATUALIZADO PARA ISOLAR DADOS POR CONTA) ======
+// ====== MONITOR DE LOGIN ======
 window.auth.onAuthStateChanged(async user => {
     if (user) {
-        // Usuário logado: Esconde o login e mostra o App
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-screen').style.display = 'block';
         document.getElementById('user-display').innerText = user.email || user.displayName;
         setAuthEmail(user.email);
-
-        // Opcional: Se quiser que uma conta nova já puxe da nuvem automaticamente ao logar:
-        // await baixarNuvem(); 
     } else {
-        // Usuário deslogado: Zera os dados locais para não misturar contas e mostra o login
         zerarDadosMemoriaLocais();
         document.getElementById('login-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
     }
 });
 
-// FUNÇÃO PARA ZERAR DADOS DA TELA AO SAIR OU ENTRAR COM OUTRA CONTA
 function zerarDadosMemoriaLocais() {
     configuracoes = { salario: 0, horas: 0, taxaFixa: 0, valorHora: 0 };
     ingredientes = [];
@@ -55,10 +49,10 @@ function zerarDadosMemoriaLocais() {
     receitas = [];
     receitaAtualComposicao = []; 
     kitAtualComposicao = [];
+    historicoAcertos = [];
     localStorage.removeItem('dadosConfeitaria');
     localStorage.removeItem('emailAuth');
     
-    // Atualiza a tela para refletir o zero
     atualizarTelaConfiguracoes();
     atualizarTabelaIngredientes();
     atualizarTabelaEmbalagens();
@@ -66,19 +60,14 @@ function zerarDadosMemoriaLocais() {
     atualizarTelaReceitas();
 }
 
-// APLICAR PERSISTÊNCIA (MANTER CONECTADO)
 async function configurarPersistencia() {
     const checkbox = document.getElementById('manter-conectado');
-    const manter = checkbox ? checkbox.checked : true; // Se não achar, assume true
+    const manter = checkbox ? checkbox.checked : true;
     const tipo = manter ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
     await window.auth.setPersistence(tipo);
 }
 
 // 3. FUNÇÕES DE AUTENTICAÇÃO
-// ==========================================
-// VALIDAÇÕES DE CADASTRO E UI DE SENHA
-// ==========================================
-
 function togglePassword(inputId, iconElement) {
     const input = document.getElementById(inputId);
     if (input.type === "password") {
@@ -94,7 +83,6 @@ function togglePassword(inputId, iconElement) {
 
 function validarForcaSenha() {
     const senha = document.getElementById('cadastro-senha').value;
-    
     const reqLength = senha.length >= 8;
     const reqUpper = /[A-Z]/.test(senha);
     const reqLower = /[a-z]/.test(senha);
@@ -127,7 +115,6 @@ function toggleRequisitoUI(id, isValid) {
 function validarDataNascimento() {
     const dataInput = document.getElementById('cadastro-data').value;
     const erroSpan = document.getElementById('erro-data');
-    
     if (!dataInput) return false;
 
     const dataNascimento = new Date(dataInput);
@@ -148,7 +135,6 @@ function validarDataNascimento() {
     return true;
 }
 
-// ATUALIZADA COM AS BARRICADAS DE SEGURANÇA
 async function criarContaEmail() {
     const nome = document.getElementById('cadastro-nome').value.trim();
     const dataStr = document.getElementById('cadastro-data').value;
@@ -160,17 +146,9 @@ async function criarContaEmail() {
         return alert("Por favor, preencha todos os campos do formulário.");
     }
 
-    if (!validarDataNascimento()) {
-        return alert("Verifique a data de nascimento.");
-    }
-
-    if (!validarForcaSenha()) {
-        return alert("Sua senha precisa atender a todos os requisitos listados em vermelho.");
-    }
-
-    if (senha !== senhaConfirma) {
-        return alert("As senhas não coincidem. Digite novamente para confirmar.");
-    }
+    if (!validarDataNascimento()) return alert("Verifique a data de nascimento.");
+    if (!validarForcaSenha()) return alert("Sua senha precisa atender a todos os requisitos listados em vermelho.");
+    if (senha !== senhaConfirma) return alert("As senhas não coincidem.");
 
     try {
         await configurarPersistencia();
@@ -186,7 +164,6 @@ async function criarContaEmail() {
 async function entrarComEmail() {
     const email = document.getElementById('login-email').value.trim();
     const senha = document.getElementById('login-senha').value.trim();
-    
     if (!email || !senha) return alert("Por favor, preencha o e-mail e a senha.");
 
     try {
@@ -204,7 +181,6 @@ async function entrarComGoogle() {
         provider.setCustomParameters({ prompt: 'select_account' });
         await window.auth.signInWithPopup(provider);
     } catch (error) {
-        console.error("Erro no pop-up do Google:", error);
         alert("Erro no login com Google: " + error.message);
     }
 }
@@ -217,13 +193,14 @@ async function fazerLogout() {
     }
 }
 
-// ====== VARIÁVEIS GERAIS (DADOS INTACTOS) ======
+// ====== VARIÁVEIS GERAIS ======
 let configuracoes = { salario: 0, horas: 0, taxaFixa: 0, valorHora: 0 };
 let ingredientes = [];
 let embalagens = [];
 let receitas = [];
 let receitaAtualComposicao = []; 
 let kitAtualComposicao = [];
+let historicoAcertos = [];
 let emailAuth = localStorage.getItem('emailAuth') || '';
 
 let categoriasExpandidas = new Set();
@@ -232,12 +209,10 @@ let ordemManual = false;
 let dragCatId = null;
 let dragId = null;
 
-// ====== INICIALIZAÇÃO ======
 document.addEventListener('DOMContentLoaded', () => {
     carregarDadosLocal();
 });
 
-// ====== NAVEGAÇÃO DE ABAS ======
 function openTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -247,7 +222,7 @@ function openTab(tabId) {
 }
 
 // -----------------------------------------------------
-// CLOUD SAVE E AUTENTICAÇÃO (PYTHON BACKEND)
+// CLOUD SAVE E AUTENTICAÇÃO
 // -----------------------------------------------------
 function setAuthEmail(email) {
     emailAuth = email;
@@ -268,7 +243,8 @@ async function sincronizarNuvem() {
             embalagens: embalagens || [],
             configuracoes: configuracoes || {},
             ordemCategorias: ordemCategorias || [],
-            ordemManual: ordemManual || false
+            ordemManual: ordemManual || false,
+            historicoAcertos: historicoAcertos || []
         };
 
         const res = await fetch('https://brigaussie-api.onrender.com/api/sync', {
@@ -314,6 +290,7 @@ async function baixarNuvem() {
             if (dados.configuracoes) configuracoes = dados.configuracoes;
             if (dados.ordemCategorias) ordemCategorias = dados.ordemCategorias;
             if (dados.ordemManual !== undefined) ordemManual = dados.ordemManual;
+            if (dados.historicoAcertos) historicoAcertos = dados.historicoAcertos;
 
             salvarNoNavegador();
 
@@ -332,9 +309,8 @@ async function baixarNuvem() {
     }
 }
 
-// ====== SALVAMENTO E LOCALSTORAGE ======
 function salvarNoNavegador() {
-    const dados = { configuracoes, ingredientes, embalagens, receitas, ordemCategorias, ordemManual };
+    const dados = { configuracoes, ingredientes, embalagens, receitas, ordemCategorias, ordemManual, historicoAcertos };
     localStorage.setItem('dadosConfeitaria', JSON.stringify(dados));
     atualizarSelects();
     preencherSelectLote();
@@ -350,6 +326,7 @@ function carregarDadosLocal() {
         receitas = dados.receitas || [];
         ordemCategorias = dados.ordemCategorias || [];
         ordemManual = dados.ordemManual || false;
+        historicoAcertos = dados.historicoAcertos || [];
     }
     atualizarTelaConfiguracoes();
     atualizarTabelaIngredientes();
@@ -359,16 +336,14 @@ function carregarDadosLocal() {
     preencherSelectLote();
 }
 
-// ====== LÓGICA DE CONFIGURAÇÕES ======
+// ====== CONFIGURAÇÕES ======
 function salvarConfiguracoes() {
     const salario = parseFloat(document.getElementById('conf-salario').value) || 0;
     const horas = parseFloat(document.getElementById('conf-horas').value) || 0;
     const taxaFixa = parseFloat(document.getElementById('conf-taxa').value) || 0;
 
     let valorHora = 0;
-    if (horas > 0) {
-        valorHora = salario / horas;
-    }
+    if (horas > 0) valorHora = salario / horas;
 
     configuracoes = { salario, horas, taxaFixa, valorHora };
     salvarNoNavegador();
@@ -381,11 +356,6 @@ function atualizarTelaConfiguracoes() {
     document.getElementById('conf-salario').value = configuracoes.salario || '';
     document.getElementById('conf-horas').value = configuracoes.horas || '';
     document.getElementById('conf-taxa').value = configuracoes.taxaFixa || '';
-    
-    const displayHora = document.getElementById('valor-hora-display');
-    if(displayHora) {
-        displayHora.innerText = `R$ ${configuracoes.valorHora.toFixed(2).replace('.', ',')}`;
-    }
 }
 
 // ====== ESTOQUE ======
@@ -397,32 +367,18 @@ function salvarIngrediente() {
     const peso = parseFloat(document.getElementById('ing-peso').value);
     const preco = parseFloat(document.getElementById('ing-preco').value);
 
-    if (!nome || !peso || !preco) {
-        alert("Preencha todos os campos do ingrediente!");
-        return;
-    }
+    if (!nome || !peso || !preco) return alert("Preencha todos os campos do ingrediente!");
 
     if (idEdit) {
         const index = ingredientes.findIndex(i => i.id === idEdit);
-        if (index !== -1) {
-            ingredientes[index] = { id: idEdit, cat, nome, peso, preco, unidade };
-        }
+        if (index !== -1) ingredientes[index] = { id: idEdit, cat, nome, peso, preco, unidade };
     } else {
-        const novoIngrediente = {
-            id: 'ing_' + Date.now().toString(),
-            cat,
-            nome,
-            peso,
-            preco,
-            unidade
-        };
-        ingredientes.push(novoIngrediente);
+        ingredientes.push({ id: 'ing_' + Date.now().toString(), cat, nome, peso, preco, unidade });
     }
 
     document.getElementById('ing-id').value = '';
     document.getElementById('ing-cat').value = '';
     document.getElementById('ing-nome').value = '';
-    document.getElementById('ing-unidade').value = 'g';
     document.getElementById('ing-peso').value = '';
     document.getElementById('ing-preco').value = '';
 
@@ -867,7 +823,7 @@ function salvarKit() {
     openTab('receitas');
 }
 
-// ====== RENDERIZAÇÃO DE RECEITAS E DRAG & DROP ======
+// ====== RENDERIZAÇÃO DE RECEITAS ======
 function toggleCategoria(cat) {
     if(categoriasExpandidas.has(cat)) categoriasExpandidas.delete(cat);
     else categoriasExpandidas.add(cat);
@@ -1046,10 +1002,8 @@ function soltarDragCat(event, catDestino) {
         ordemManual = true;
         let idxOrigem = ordemCategorias.indexOf(dragCatId);
         let idxDestino = ordemCategorias.indexOf(catDestino);
-        
         let item = ordemCategorias.splice(idxOrigem, 1)[0];
         ordemCategorias.splice(idxDestino, 0, item);
-        
         salvarNoNavegador();
         atualizarTelaReceitas();
     }
@@ -1072,12 +1026,9 @@ function soltarDragReceita(event, idDestino) {
     if(dragId && dragId !== idDestino) {
         const idxOrigem = receitas.findIndex(r => r.id === dragId);
         const idxDestino = receitas.findIndex(r => r.id === idDestino);
-        
         const item = receitas.splice(idxOrigem, 1)[0];
         receitas.splice(idxDestino, 0, item);
-        
         receitas[idxDestino].categoria = receitas[idxDestino===0 ? 1 : idxDestino-1].categoria;
-        
         salvarNoNavegador();
         atualizarTelaReceitas();
     }
@@ -1087,9 +1038,7 @@ function soltarDragReceita(event, idDestino) {
 function toggleDetalhes(event, id) {
     event.stopPropagation();
     const divDetalhes = document.getElementById(`detalhes-${id}`);
-    if(divDetalhes) {
-        divDetalhes.style.display = divDetalhes.style.display === 'none' ? 'block' : 'none';
-    }
+    if(divDetalhes) divDetalhes.style.display = divDetalhes.style.display === 'none' ? 'block' : 'none';
 }
 
 function excluirReceitaUnica(event, id) {
@@ -1153,7 +1102,6 @@ function editarReceitaSalva(event, id) {
     }
 }
 
-// ====== LOTE DE MARGEM ======
 function preencherSelectLote() {
     const sel = document.getElementById('lote-categoria');
     if(!sel) return;
@@ -1173,9 +1121,7 @@ function aplicarMargemEmLote() {
         if(cat === 'TODAS' || (rec.categoria || 'Geral') === cat) {
             rec.margem = novaMargem;
             let custoBase = rec.custos ? rec.custos.unitario : 0;
-            if(custoBase > 0) {
-                rec.precoVenda = custoBase * (1 + (novaMargem / 100));
-            }
+            if(custoBase > 0) rec.precoVenda = custoBase * (1 + (novaMargem / 100));
         }
     });
 
@@ -1184,53 +1130,36 @@ function aplicarMargemEmLote() {
     alert("Margens atualizadas em lote com sucesso!");
 }
 
-
 // ==========================================
-// ABA: ACERTO DE CAIXA
+// ABA: ACERTO DE CAIXA (COM HISTÓRICO E SETAS LATERAIS)
 // ==========================================
 let acertoProdutos = [];
 let acertoEmbalagens = [];
+let resultadoAtualAcerto = null;
+
+function mudarSubTabAcerto(aba) {
+    const btnNovo = document.getElementById('subtab-novo');
+    const btnHist = document.getElementById('subtab-historico');
+    const divNovo = document.getElementById('conteudo-novo-acerto');
+    const divHist = document.getElementById('conteudo-historico-acerto');
+
+    if (aba === 'novo') {
+        btnNovo.classList.add('active');
+        btnHist.classList.remove('active');
+        divNovo.style.display = 'block';
+        divHist.style.display = 'none';
+    } else {
+        btnHist.classList.add('active');
+        btnNovo.classList.remove('active');
+        divHist.style.display = 'block';
+        divNovo.style.display = 'none';
+    }
+}
 
 function atualizarSelectsAcerto() {
-    const selProd = document.getElementById('acerto-produto-select');
-    const selEmb = document.getElementById('acerto-embalagem-select');
+    renderizarDropdownAcerto();
     
-    if (selProd) {
-        selProd.innerHTML = '<option value="">-- Escolha Receita ou Kit --</option>';
-        
-        // Agrupa as receitas por categoria usando optgroups nativos profissionais
-        const categoriasReceitas = {};
-        receitas.forEach(r => {
-            const cat = r.categoria || 'Geral';
-            if (!categoriasReceitas[cat]) categoriasReceitas[cat] = [];
-            categoriasReceitas[cat].push(r);
-        });
-
-        for (const cat in categoriasReceitas) {
-            let optgroup = document.createElement('optgroup');
-            optgroup.label = `📁 ${cat}`;
-            categoriasReceitas[cat].forEach(r => {
-                let opt = document.createElement('option');
-                opt.value = `R-${r.id}`;
-                opt.textContent = r.nome; // Sem o prefixo [Receita]
-                optgroup.appendChild(opt);
-            });
-            selProd.appendChild(optgroup);
-        }
-
-        if (kits.length > 0) {
-            let optgroupKits = document.createElement('optgroup');
-            optgroupKits.label = '📁 Kits / Encomendas';
-            kits.forEach(k => {
-                let opt = document.createElement('option');
-                opt.value = `K-${k.id}`;
-                opt.textContent = k.nome;
-                optgroupKits.appendChild(opt);
-            });
-            selProd.appendChild(optgroupKits);
-        }
-    }
-
+    const selEmb = document.getElementById('acerto-embalagem-select');
     if (selEmb) {
         selEmb.innerHTML = '<option value="">-- Escolha Embalagem --</option>';
         embalagens.forEach(e => {
@@ -1239,25 +1168,101 @@ function atualizarSelectsAcerto() {
     }
 }
 
-function addProdutoAcerto() {
-    const select = document.getElementById('acerto-produto-select');
-    const qtdInput = document.getElementById('acerto-produto-qtd');
+function toggleDropdownAcerto() {
+    const painel = document.getElementById('acerto-dropdown-painel');
+    painel.style.display = painel.style.display === 'block' ? 'none' : 'block';
+}
+
+document.addEventListener('click', function(e) {
+    const painel = document.getElementById('acerto-dropdown-painel');
+    const trigger = document.getElementById('acerto-trigger');
+    if (painel && trigger && !painel.contains(e.target) && !trigger.contains(e.target)) {
+        painel.style.display = 'none';
+    }
+});
+
+function renderizarDropdownAcerto() {
+    const painel = document.getElementById('acerto-dropdown-painel');
+    if (!painel) return;
     
-    if (!select.value || !qtdInput.value) {
-        return alert("Selecione um item e informe uma quantidade válida.");
+    painel.innerHTML = '';
+    const grupos = {};
+    
+    receitas.forEach(r => {
+        const cat = r.categoria || 'Geral';
+        if (!grupos[cat]) grupos[cat] = [];
+        grupos[cat].push({ tipo: 'R', id: r.id, nome: r.nome });
+    });
+
+    if (kits.length > 0) {
+        const catKit = 'Kits / Encomendas';
+        kits.forEach(k => {
+            if (!grupos[catKit]) grupos[catKit] = [];
+            grupos[catKit].push({ tipo: 'K', id: k.id, nome: k.nome });
+        });
     }
 
-    const [tipo, id] = select.value.split('-');
-    const nome = select.options[select.selectedIndex].text;
+    for (const cat in grupos) {
+        const grupoDiv = document.createElement('div');
+        grupoDiv.className = 'acerto-cat-grupo';
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'acerto-cat-header';
+        headerDiv.innerHTML = `<span><i class="fa-solid fa-folder" style="color:#e67e22; margin-right:8px;"></i> ${cat}</span> <i class="fa-solid fa-chevron-right seta-lateral"></i>`;
+        
+        const itensDiv = document.createElement('div');
+        itensDiv.className = 'acerto-cat-itens';
+
+        headerDiv.onclick = (e) => {
+            e.stopPropagation();
+            itensDiv.classList.toggle('ativo');
+            const icon = headerDiv.querySelector('.seta-lateral');
+            if (itensDiv.classList.contains('ativo')) {
+                icon.className = 'fa-solid fa-chevron-down seta-lateral';
+            } else {
+                icon.className = 'fa-solid fa-chevron-right seta-lateral';
+            }
+        };
+
+        grupos[cat].forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'acerto-opcao-item';
+            itemDiv.textContent = item.nome;
+            itemDiv.onclick = (e) => {
+                e.stopPropagation();
+                document.getElementById('acerto-trigger-text').textContent = item.nome;
+                document.getElementById('acerto-prod-id').value = item.id;
+                document.getElementById('acerto-prod-tipo').value = item.tipo;
+                painel.style.display = 'none';
+                document.getElementById('acerto-produto-qtd').focus();
+            };
+            itensDiv.appendChild(itemDiv);
+        });
+
+        grupoDiv.appendChild(headerDiv);
+        grupoDiv.appendChild(itensDiv);
+        painel.appendChild(grupoDiv);
+    }
+}
+
+function addProdutoAcerto() {
+    const tipo = document.getElementById('acerto-prod-tipo').value;
+    const id = document.getElementById('acerto-prod-id').value;
+    const nome = document.getElementById('acerto-trigger-text').textContent;
+    const qtdInput = document.getElementById('acerto-produto-qtd');
     const qtd = parseFloat(qtdInput.value);
 
-    if (isNaN(qtd) || qtd <= 0) {
-        return alert("Informe uma quantidade válida.");
+    if (!id || !nome || nome.includes('Escolha') || isNaN(qtd) || qtd <= 0) {
+        return alert("Selecione um item válido da lista e informe uma quantidade.");
     }
 
     acertoProdutos.push({ tipo, id, nome, qtd });
-    select.value = '';
+    
+    document.getElementById('acerto-trigger-text').textContent = '-- Escolha Receita ou Kit --';
+    document.getElementById('acerto-prod-id').value = '';
+    document.getElementById('acerto-prod-tipo').value = '';
     qtdInput.value = '';
+    
     renderizarListasAcerto();
 }
 
@@ -1273,9 +1278,7 @@ function addEmbalagemAcerto() {
     const nome = select.options[select.selectedIndex].text;
     const qtd = parseFloat(qtdInput.value);
 
-    if (isNaN(qtd) || qtd <= 0) {
-        return alert("Informe uma quantidade válida.");
-    }
+    if (isNaN(qtd) || qtd <= 0) return alert("Informe uma quantidade válida.");
 
     acertoEmbalagens.push({ id, nome, qtd });
     select.value = '';
@@ -1285,45 +1288,28 @@ function addEmbalagemAcerto() {
 
 function extrairCustosReceita(receitaId) {
     const rec = receitas.find(r => r.id == receitaId);
-    if (!rec) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
+    if (!rec || !rec.custos) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
 
-    let cInsumos = 0, cEmb = 0;
-    rec.composicao.forEach(item => {
-        if (item.tipo === 'ingrediente') {
-            const ing = ingredientes.find(i => i.id == item.id);
-            if (ing) cInsumos += (ing.preco / ing.peso) * item.qtd;
-        } else if (item.tipo === 'embalagem') {
-            const emb = embalagens.find(e => e.id == item.id);
-            if (emb) cEmb += (emb.preco / emb.qtd) * item.qtd;
-        }
-    });
-
-    const valorMinuto = (configuracoes.salario / configuracoes.horas) / 60 || 0;
-    const cMaoDeObra = valorMinuto * (rec.tempo || 0);
-    const cFixos = (cInsumos + cMaoDeObra + cEmb) * ((configuracoes.taxaFixa || 0) / 100);
     const rend = rec.rendimento || 1;
+    const unitTotalArredondado = parseFloat(((rec.custos.unitario || 0)).toFixed(2));
+    const unitInsumo = parseFloat((((rec.custos.insumos || 0) / rend)).toFixed(2));
+    const unitMaoObra = parseFloat((((rec.custos.maoDeObra || 0) / rend)).toFixed(2));
+    const unitFixo = parseFloat((unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2));
 
-    return { insumos: cInsumos / rend, fixos: cFixos / rend, maoDeObra: cMaoDeObra / rend, embalagens: cEmb / rend };
+    return { insumos: unitInsumo, fixos: unitFixo, maoDeObra: unitMaoObra, embalagens: 0 };
 }
 
 function extrairCustosKit(kitId) {
-    const kit = kits.find(k => k.id == kitId);
-    if (!kit) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
+    const kit = receitas.find(r => r.id == kitId && r.isKit) || kits.find(k => k.id == kitId);
+    if (!kit || !kit.custos) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
     
-    let kIns = 0, kFix = 0, kMo = 0, kEmb = 0;
-    kit.composicao.forEach(item => {
-        if (item.tipo === 'receita') {
-            const rx = extrairCustosReceita(item.id);
-            kIns += rx.insumos * item.qtd;
-            kFix += rx.fixos * item.qtd;
-            kMo += rx.maoDeObra * item.qtd;
-            kEmb += rx.embalagens * item.qtd;
-        } else if (item.tipo === 'embalagem') {
-            const emb = embalagens.find(e => e.id == item.id);
-            if (emb) kEmb += (emb.preco / emb.qtd) * item.qtd;
-        }
-    });
-    return { insumos: kIns, fixos: kFix, maoDeObra: kMo, embalagens: kEmb };
+    const rend = kit.rendimento || 1;
+    const unitTotalArredondado = parseFloat(((kit.custos.unitario || 0)).toFixed(2));
+    const unitInsumo = parseFloat((((kit.custos.insumos || 0) / rend)).toFixed(2));
+    const unitMaoObra = parseFloat((((kit.custos.maoDeObra || 0) / rend)).toFixed(2));
+    const unitFixo = parseFloat((unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2));
+
+    return { insumos: unitInsumo, fixos: unitFixo, maoDeObra: unitMaoObra, embalagens: 0 };
 }
 
 function formatarBRL(valor) {
@@ -1370,6 +1356,7 @@ function removerItemAcerto(lista, index) {
 }
 
 function calcularAcertoCaixa() {
+    const data = document.getElementById('acerto-data').value;
     const faturamento = parseFloat(document.getElementById('acerto-faturamento').value);
     const percEmpresa = parseFloat(document.getElementById('acerto-porcentagem').value);
     
@@ -1400,18 +1387,80 @@ function calcularAcertoCaixa() {
     const fatiaEmpresa = lucroLiquido * (percEmpresa / 100);
     const fatiaEu = lucroLiquido - fatiaEmpresa;
 
+    const valorCPF = totMaoDeObra + fatiaEu;
+    const valorCNPJ = totReposicao + totEmbalagens + fatiaEmpresa;
+
+    resultadoAtualAcerto = {
+        id: 'acerto_' + Date.now(),
+        data: data || new Date().toISOString().split('T')[0],
+        faturamento,
+        percEmpresa,
+        produtos: [...acertoProdutos],
+        embalagens: [...acertoEmbalagens],
+        custoProducao,
+        totEmbalagens,
+        custoTotalSaida,
+        lucroLiquido,
+        valorCPF,
+        totMaoDeObra,
+        fatiaEu,
+        valorCNPJ,
+        totReposicao: totReposicao + totEmbalagens,
+        fatiaEmpresa
+    };
+
     document.getElementById('res-acerto-producao').innerText = formatarBRL(custoProducao);
     document.getElementById('res-acerto-embalagens').innerText = formatarBRL(totEmbalagens);
     document.getElementById('res-acerto-custototal').innerText = formatarBRL(custoTotalSaida);
     document.getElementById('res-acerto-lucroliquido').innerText = formatarBRL(lucroLiquido);
     
-    document.getElementById('res-acerto-cpf').innerText = formatarBRL(totMaoDeObra + fatiaEu);
+    document.getElementById('res-acerto-cpf').innerText = formatarBRL(valorCPF);
     document.getElementById('res-acerto-prolabore').innerText = formatarBRL(totMaoDeObra);
     document.getElementById('res-acerto-lucro-cpf').innerText = formatarBRL(fatiaEu);
 
-    document.getElementById('res-acerto-cnpj').innerText = formatarBRL(totReposicao + totEmbalagens + fatiaEmpresa);
+    document.getElementById('res-acerto-cnpj').innerText = formatarBRL(valorCNPJ);
     document.getElementById('res-acerto-reposicao').innerText = formatarBRL(totReposicao + totEmbalagens);
     document.getElementById('res-acerto-lucro-cnpj').innerText = formatarBRL(fatiaEmpresa);
 
     document.getElementById('painel-resultado-acerto').style.display = 'flex';
+}
+
+function salvarAcertoNoHistorico() {
+    if (!resultadoAtualAcerto) return alert("Nenhum cálculo realizado para salvar.");
+    
+    historicoAcertos.unshift(resultadoAtualAcerto);
+    salvarNoNavegador();
+    alert("Acerto salvo no histórico com sucesso!");
+    mudarSubTabAcerto('historico');
+    renderizarHistoricoAcertos();
+}
+
+function renderizarHistoricoAcertos() {
+    const container = document.getElementById('lista-historico-acertos');
+    if (!container) return;
+
+    if (historicoAcertos.length === 0) {
+        container.innerHTML = '<p style="color: #666; text-align: center;">Nenhum acerto salvo no histórico ainda.</p>';
+        return;
+    }
+
+    container.innerHTML = historicoAcertos.map((h) => `
+        <div style="background: #fdfdfd; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px;">
+                <strong>📅 Data: ${h.data} | Faturamento: ${formatarBRL(h.faturamento)}</strong>
+                <button class="btn-excluir" onclick="excluirHistoricoAcerto('${h.id}')" style="padding: 4px 8px; font-size: 0.8rem;"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <p style="font-size: 0.9rem; color: #555;">Lucro Empresa (${h.percEmpresa}%): <strong>${formatarBRL(h.fatiaEmpresa)}</strong></p>
+            <p style="font-size: 0.9rem; color: #e67e22;"><strong>CPF (Bolso):</strong> ${formatarBRL(h.valorCPF)}</p>
+            <p style="font-size: 0.9rem; color: #34495e;"><strong>CNPJ (Empresa):</strong> ${formatarBRL(h.valorCNPJ)}</p>
+        </div>
+    `).join('');
+}
+
+function excluirHistoricoAcerto(id) {
+    if (confirm("Deseja excluir este acerto do histórico?")) {
+        historicoAcertos = historicoAcertos.filter(h => h.id !== id);
+        salvarNoNavegador();
+        renderizarHistoricoAcertos();
+    }
 }

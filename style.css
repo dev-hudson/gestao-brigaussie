@@ -736,7 +736,6 @@ header {
 /* ========================================================== */
 
 @media (max-width: 768px) {
-    /* Barra Superior do Usuário */
     .cloud-bar {
         flex-direction: column;
         align-items: stretch;
@@ -761,7 +760,6 @@ header {
         font-size: 0.75rem;
     }
 
-    /* Cabeçalho e Título Principal */
     header {
         padding: 15px 10px;
         gap: 15px;
@@ -779,7 +777,6 @@ header {
         word-break: break-word;
     }
 
-    /* Navegação de Abas */
     .nav-app {
         flex-direction: column;
         width: 100%;
@@ -793,7 +790,6 @@ header {
         border-radius: 6px;
     }
 
-    /* Tela de Login em Tela Cheia Responsiva */
     .auth-box {
         margin: 10px;
         padding: 20px 15px;
@@ -851,60 +847,6 @@ header {
     color: white; 
 }
 
-
-.custom-search-box { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 10px; 
-}
-.lista-categorias-acerto { 
-    max-height: 250px; 
-    overflow-y: auto; 
-    background: #fff;
-    border: 1px solid #ccc; 
-    border-radius: 5px; 
-    padding: 10px; 
-}
-.lista-categorias-acerto details { 
-    margin-bottom: 8px; 
-    border: 1px solid #eee; 
-    border-radius: 5px; 
-    background: #fdfdfd; 
-}
-.lista-categorias-acerto summary { 
-    background: #f3efe6; 
-    padding: 12px; 
-    font-weight: bold; 
-    cursor: pointer; 
-    color: #34495e; 
-    border-radius: 5px; 
-    user-select: none; 
-}
-.lista-categorias-acerto summary:hover { 
-    background: #e8e4db; 
-}
-.acerto-item-lista { 
-    padding: 10px 15px; 
-    border-top: 1px solid #eee; 
-    cursor: pointer; 
-    font-size: 0.95rem; 
-    display: flex; 
-    justify-content: space-between; 
-    transition: 0.2s; 
-    color: #555; 
-}
-.acerto-item-lista:hover { 
-    background: #516b84; 
-    color: white; 
-}
-
-.acerto-item-header { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    width: 100%; 
-    font-weight: bold; 
-}
 .raio-x-mini { 
     font-size: 0.8rem; 
     color: #27ae60; 
@@ -915,4 +857,66 @@ header {
     display: inline-block; 
     font-weight: 500; 
     border: 1px solid #bce8d8; 
+}
+
+/* ========================================================== */
+/* SELECT PERSONALIZADO COM SETA LATERAL (ACERTO DE CAIXA)    */
+/* ========================================================== */
+.custom-select-trigger {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+    color: #333;
+}
+.custom-select-trigger:hover { border-color: var(--cor-60); }
+
+.dropdown-painel-personalizado {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+    z-index: 1000;
+    max-height: 280px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+
+.acerto-cat-grupo { border-bottom: 1px solid #f1f1f1; }
+.acerto-cat-header {
+    background: #f3efe6;
+    padding: 10px 15px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #34495e;
+    user-select: none;
+    font-size: 0.95rem;
+}
+.acerto-cat-header:hover { background: #e8e4db; }
+.acerto-cat-itens { display: none; background: #fff; }
+.acerto-cat-itens.ativo { display: block; }
+
+.acerto-opcao-item {
+    padding: 10px 15px 10px 35px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #555;
+    border-top: 1px solid #f9f9f9;
+    transition: background 0.15s;
+}
+.acerto-opcao-item:hover {
+    background: #516b84;
+    color: white;
 }
