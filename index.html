@@ -9,242 +9,290 @@
 </head>
 <body>
 
-    <!-- Barra de Autenticação / Cloud -->
-    <div class="cloud-bar" id="cloud-bar" style="display: flex; justify-content: space-between;">
-        
-        <!-- Visível quando NÃO está logado -->
-        <div id="auth-logged-out" style="display: flex; gap: 8px; align-items: center;">
-            <span><i class="fa-solid fa-lock"></i> Acesso:</span>
-            <input type="email" id="auth-email" placeholder="E-mail">
-            <input type="password" id="auth-senha" placeholder="Senha">
-            <button class="btn-icon-small" onclick="entrarComEmail()">Entrar</button>
-            <button class="btn-icon-small" onclick="criarContaEmail()">Cadastrar</button>
-            <button class="btn-icon-small" onclick="entrarComGoogle()" style="background-color: #4285F4; color: white;"><i class="fa-brands fa-google"></i> Google</button>
-        </div>
+    <!-- TELA DE LOGIN ISOLADA (VISÍVEL APENAS DESLOGADO) -->
+    <div id="login-screen" class="login-fullscreen">
+        <div class="auth-box">
+            <div class="auth-logo">
+                <h2><i class="fa-solid fa-cake-candles"></i> Precificador BrigAussie</h2>
+            </div>
+            
+            <div class="auth-tabs">
+                <button id="tab-btn-entrar" class="active" onclick="alternarAbaLogin('entrar')">Entrar</button>
+                <button id="tab-btn-cadastrar" onclick="alternarAbaLogin('cadastrar')">Cadastrar</button>
+            </div>
 
-        <!-- Visível quando ESTÁ logado -->
-        <div id="auth-logged-in" style="display: none; gap: 8px; align-items: center;">
-            <span><i class="fa-solid fa-user-check"></i> <strong id="user-display"></strong></span>
-            <button class="btn-icon-small" onclick="sincronizarNuvem()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync</button>
-            <button class="btn-icon-small" onclick="baixarNuvem()"><i class="fa-solid fa-cloud-arrow-down"></i> Puxar Dados</button>
-            <button class="btn-icon-small" onclick="fazerLogout()" style="background-color: #555; color: white;">Sair</button>
-            <span id="cloud-status" style="font-size: 0.8rem; margin-left: 10px;"></span>
+            <!-- ABA: ENTRAR -->
+            <div id="box-entrar" class="auth-form active">
+                <div class="input-group">
+                    <label>E-mail</label>
+                    <input type="email" id="login-email" placeholder="Seu e-mail">
+                </div>
+                <div class="input-group">
+                    <label>Senha</label>
+                    <input type="password" id="login-senha" placeholder="Sua senha">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="manter-conectado" checked>
+                    <label for="manter-conectado">Manter conectado</label>
+                </div>
+                <button class="btn-auth btn-entrar" onclick="entrarComEmail()">Entrar</button>
+            </div>
+
+            <!-- ABA: CADASTRAR -->
+            <div id="box-cadastrar" class="auth-form" style="display: none;">
+                <div class="input-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="cadastro-nome" placeholder="Seu nome">
+                </div>
+                <div class="input-group">
+                    <label>Data de Nascimento</label>
+                    <input type="date" id="cadastro-data">
+                </div>
+                <div class="input-group">
+                    <label>E-mail</label>
+                    <input type="email" id="cadastro-email" placeholder="Seu e-mail">
+                </div>
+                <div class="input-group">
+                    <label>Senha</label>
+                    <input type="password" id="cadastro-senha" placeholder="Crie uma senha forte">
+                </div>
+                <button class="btn-auth btn-entrar" onclick="criarContaEmail()">Criar Conta</button>
+            </div>
+
+            <div class="auth-divider"><span>ou</span></div>
+            
+            <button class="btn-auth btn-google" onclick="entrarComGoogle()">
+                <i class="fa-brands fa-google"></i> Continuar com o Google
+            </button>
         </div>
-        
     </div>
-    <header>
-        <div class="logo">
-            <i class="fa-solid fa-cake-candles"></i>
-            <h1>Precificador BrigAussie</h1>
+
+    <!-- APLICATIVO PRINCIPAL (OCULTO ATÉ LOGAR) -->
+    <div id="app-screen" style="display: none;">
+        
+        <!-- BARRA SUPERIOR DO USUÁRIO LOGADO -->
+        <div class="cloud-bar">
+            <span><i class="fa-solid fa-user"></i> <strong id="user-display"></strong></span>
+            <div class="cloud-actions">
+                <button class="btn-top" style="background: #e67e22;" onclick="sincronizarNuvem()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync</button>
+                <button class="btn-top" style="background: #e67e22;" onclick="baixarNuvem()"><i class="fa-solid fa-cloud-arrow-down"></i> Puxar Dados</button>
+                <button class="btn-top" style="background: transparent; border: 1px solid #ccc; color: #fff;" onclick="fazerLogout()">Sair</button>
+            </div>
+            <span id="cloud-status"></span>
         </div>
-        <nav>
-            <button class="tab-btn active" onclick="openTab('receitas')">Minhas Receitas</button>
-            <button class="tab-btn" onclick="openTab('nova-receita')">Nova Receita</button>
-            <button class="tab-btn" onclick="openTab('kits')">Kits / Encomendas</button>
-            <button class="tab-btn" onclick="openTab('ingredientes')">Ingredientes</button>
-            <button class="tab-btn" onclick="openTab('embalagens')">Embalagens</button>
-            <button class="tab-btn" onclick="openTab('configuracoes')">Configurações</button>
-        </nav>
-    </header>
-
-    <main>
-        <!-- ABA: Receitas -->
-        <section id="receitas" class="tab-content active">
-            <div class="header-section">
-                <h2>Minhas Receitas Salvas</h2>
-                <p>Arraste os cartões (Drag & Drop) para reordenar sua lista.</p>
+        
+        <header>
+            <div class="logo-app">
+                <i class="fa-solid fa-cake-candles"></i>
+                <h1>Precificador BrigAussie</h1>
             </div>
-            <div id="lista-receitas-salvas"></div>
-        </section>
+            <nav class="nav-app">
+                <button class="tab-btn active" onclick="openTab('receitas')">Minhas Receitas</button>
+                <button class="tab-btn" onclick="openTab('nova-receita')">Nova Receita</button>
+                <button class="tab-btn" onclick="openTab('kits')">Kits / Encomendas</button>
+                <button class="tab-btn" onclick="openTab('ingredientes')">Ingredientes</button>
+                <button class="tab-btn" onclick="openTab('embalagens')">Embalagens</button>
+                <button class="tab-btn" onclick="openTab('configuracoes')">Configurações</button>
+            </nav>
+        </header>
 
-        <!-- ABA: Nova Receita -->
-        <section id="nova-receita" class="tab-content">
-            <div class="header-section">
-                <h2>Criar Receita Base</h2>
-                <p>Crie massas, recheios ou doces unitários.</p>
-            </div>
-            <div class="form-container">
-                <div class="form-linha">
-                    <input type="hidden" id="rec-id-edit">
-                    <div class="input-group" style="flex: 2;">
-                        <label>Nome do Produto</label>
-                        <input type="text" id="rec-nome" oninput="calcularCustosDaReceita()">
+        <main>
+            <!-- ABA: Receitas -->
+            <section id="receitas" class="tab-content active">
+                <div class="header-section">
+                    <h2>Minhas Receitas Salvas</h2>
+                    <p>Arraste os cartões (Drag & Drop) para reordenar sua lista.</p>
+                </div>
+                <div id="lista-receitas-salvas"></div>
+            </section>
+
+            <!-- ABA: Nova Receita -->
+            <section id="nova-receita" class="tab-content">
+                <div class="header-section">
+                    <h2>Criar Receita Base</h2>
+                    <p>Crie massas, recheios ou doces unitários.</p>
+                </div>
+                <div class="form-container">
+                    <div class="form-linha">
+                        <input type="hidden" id="rec-id-edit">
+                        <div class="input-group" style="flex: 2;">
+                            <label>Nome do Produto</label>
+                            <input type="text" id="rec-nome" oninput="calcularCustosDaReceita()">
+                        </div>
+                        <div class="input-group" style="flex: 2;">
+                            <label>Categoria</label>
+                            <input type="text" id="rec-categoria" placeholder="Ex: Brigadeiros" oninput="calcularCustosDaReceita()">
+                        </div>
                     </div>
-                    <div class="input-group" style="flex: 2;">
-                        <label>Categoria</label>
-                        <input type="text" id="rec-categoria" placeholder="Ex: Brigadeiros" oninput="calcularCustosDaReceita()">
+                    <div class="form-linha">
+                        <div class="input-group">
+                            <label>Rendimento (Unidades)</label>
+                            <input type="number" id="rec-rendimento" oninput="calcularCustosDaReceita()" value="1">
+                        </div>
+                        <div class="input-group">
+                            <label>Tempo (Minutos)</label>
+                            <input type="number" id="rec-tempo" oninput="calcularCustosDaReceita()" value="0">
+                        </div>
                     </div>
                 </div>
-                <div class="form-linha">
+
+                <div class="form-container">
+                    <h3>Montagem (Adicione e edite na linha)</h3>
+                    <div class="form-linha">
+                        <div class="input-group" style="flex: 2;">
+                            <select id="rec-item-select"></select>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="rec-item-qtd" placeholder="Qtd">
+                        </div>
+                        <button class="btn-salvar" onclick="adicionarItemNaReceita()"><i class="fa-solid fa-plus"></i> Add</button>
+                    </div>
+                    <ul class="lista-detalhes" id="lista-composicao-receita"></ul>
+                </div>
+
+                <div class="form-container painel-precificacao">
+                    <div class="totais-detalhes">
+                        <p>Custo TOTAL: <strong id="res-custototal">R$ 0,00</strong></p>
+                        <p>Custo UNITÁRIO: <strong id="res-custounitario">R$ 0,00</strong></p>
+                    </div>
+                    <div class="form-linha">
+                        <div class="input-group">
+                            <label>Margem (%)</label>
+                            <input type="number" id="rec-margem" oninput="calcularPorMargem()">
+                        </div>
+                        <div class="input-group">
+                            <label>Venda (R$)</label>
+                            <input type="number" id="rec-preco-venda" oninput="calcularPorPreco()">
+                        </div>
+                    </div>
+                    <button class="btn-salvar" onclick="salvarReceitaCriada()">Salvar Receita</button>
+                </div>
+            </section>
+
+            <!-- ABA: Kits e Encomendas -->
+            <section id="kits" class="tab-content">
+                <div class="header-section">
+                    <h2>Montar Kit ou Cento</h2>
+                    <p>Agrupe receitas prontas e embalagens para precificar caixas ou encomendas grandes.</p>
+                </div>
+                <div class="form-container">
+                    <div class="form-linha">
+                        <input type="hidden" id="kit-id-edit">
+                        <div class="input-group"><label>Nome do Kit</label><input type="text" id="kit-nome"></div>
+                        <div class="input-group"><label>Categoria</label><input type="text" id="kit-categoria" value="Kits"></div>
+                    </div>
+                    <div class="form-linha">
+                        <div class="input-group" style="flex: 2;"><select id="kit-item-select"></select></div>
+                        <div class="input-group"><input type="number" id="kit-item-qtd" placeholder="Qtd"></div>
+                        <button class="btn-salvar" onclick="adicionarItemNoKit()"><i class="fa-solid fa-plus"></i> Add</button>
+                    </div>
+                    <ul class="lista-detalhes" id="lista-composicao-kit"></ul>
+                    <div class="totais-detalhes" style="margin-top: 15px;">
+                        <p>Custo do KIT: <strong id="kit-custototal">R$ 0,00</strong></p>
+                    </div>
+                    <div class="form-linha">
+                        <div class="input-group"><label>Margem (%)</label><input type="number" id="kit-margem" oninput="calcularMargemKit()"></div>
+                        <div class="input-group"><label>Venda (R$)</label><input type="number" id="kit-preco" oninput="calcularPrecoKit()"></div>
+                    </div>
+                    <button class="btn-salvar" onclick="salvarKit()">Salvar Kit</button>
+                </div>
+            </section>
+
+            <!-- ABA: Ingredientes -->
+            <section id="ingredientes" class="tab-content">
+                <div class="header-section" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h2>Estoque Inteligente</h2>
+                        <p>Gerencie insumos divididos por categoria.</p>
+                    </div>
+                    <div class="input-group" style="margin: 0; min-width: 250px;">
+                        <input type="text" id="busca-estoque" placeholder="Buscar ingrediente..." oninput="atualizarTabelaIngredientes()" style="border-color: #e67e22;">
+                    </div>
+                </div>
+                
+                <div class="form-container form-linha">
+                    <input type="hidden" id="ing-id">
+                    <div class="input-group"><label>Categoria</label><input type="text" id="ing-cat" placeholder="Ex: Secos, Laticínios"></div>
+                    <div class="input-group" style="flex: 2;"><label>Ingrediente</label><input type="text" id="ing-nome"></div>
+                    <div class="input-group"><label>Medida</label>
+                        <select id="ing-unidade"><option value="g">g</option><option value="ml">ml</option><option value="un">un</option></select>
+                    </div>
+                    <div class="input-group"><label>Qtd Pacote</label><input type="number" id="ing-peso"></div>
+                    <div class="input-group"><label>Preço (R$)</label><input type="number" id="ing-preco" step="0.01"></div>
+                    <button class="btn-salvar" onclick="salvarIngrediente()">Salvar</button>
+                </div>
+                <div id="tabela-ingredientes-container"></div>
+            </section>
+
+            <!-- ABA: Embalagens -->
+            <section id="embalagens" class="tab-content">
+                <div class="header-section">
+                    <h2>Embalagens e Insumos</h2>
+                    <p>Cadastre caixas, forminhas, laços e adesivos.</p>
+                </div>
+                
+                <div class="form-container form-linha">
+                    <input type="hidden" id="emb-id">
                     <div class="input-group">
-                        <label>Rendimento (Unidades)</label>
-                        <input type="number" id="rec-rendimento" oninput="calcularCustosDaReceita()" value="1">
-                    </div>
-                    <div class="input-group">
-                        <label>Tempo (Minutos)</label>
-                        <input type="number" id="rec-tempo" oninput="calcularCustosDaReceita()" value="0">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-container">
-                <h3>Montagem (Adicione e edite na linha)</h3>
-                <div class="form-linha">
-                    <div class="input-group" style="flex: 2;">
-                        <select id="rec-item-select"></select>
-                    </div>
-                    <div class="input-group">
-                        <input type="number" id="rec-item-qtd" placeholder="Qtd">
-                    </div>
-                    <button class="btn-salvar" onclick="adicionarItemNaReceita()"><i class="fa-solid fa-plus"></i> Add</button>
-                </div>
-                <ul class="lista-detalhes" id="lista-composicao-receita"></ul>
-            </div>
-
-            <div class="form-container painel-precificacao">
-                <div class="totais-detalhes">
-                    <p>Custo TOTAL: <strong id="res-custototal">R$ 0,00</strong></p>
-                    <p>Custo UNITÁRIO: <strong id="res-custounitario">R$ 0,00</strong></p>
-                </div>
-                <div class="form-linha">
-                    <div class="input-group">
-                        <label>Margem (%)</label>
-                        <input type="number" id="rec-margem" oninput="calcularPorMargem()">
-                    </div>
-                    <div class="input-group">
-                        <label>Venda (R$)</label>
-                        <input type="number" id="rec-preco-venda" oninput="calcularPorPreco()">
-                    </div>
-                </div>
-                <button class="btn-salvar" onclick="salvarReceitaCriada()">Salvar Receita</button>
-            </div>
-        </section>
-
-        <!-- ABA: Kits e Encomendas (NOVO) -->
-        <section id="kits" class="tab-content">
-            <div class="header-section">
-                <h2>Montar Kit ou Cento</h2>
-                <p>Agrupe receitas prontas e embalagens para precificar caixas ou encomendas grandes.</p>
-            </div>
-            <!-- Mesma estrutura da receita, mas injetada pelo JS -->
-            <div class="form-container">
-                <div class="form-linha">
-                    <input type="hidden" id="kit-id-edit">
-                    <div class="input-group"><label>Nome do Kit</label><input type="text" id="kit-nome"></div>
-                    <div class="input-group"><label>Categoria</label><input type="text" id="kit-categoria" value="Kits"></div>
-                </div>
-                <div class="form-linha">
-                    <div class="input-group" style="flex: 2;"><select id="kit-item-select"></select></div>
-                    <div class="input-group"><input type="number" id="kit-item-qtd" placeholder="Qtd"></div>
-                    <button class="btn-salvar" onclick="adicionarItemNoKit()"><i class="fa-solid fa-plus"></i> Add</button>
-                </div>
-                <ul class="lista-detalhes" id="lista-composicao-kit"></ul>
-                <div class="totais-detalhes" style="margin-top: 15px;">
-                    <p>Custo do KIT: <strong id="kit-custototal">R$ 0,00</strong></p>
-                </div>
-                <div class="form-linha">
-                    <div class="input-group"><label>Margem (%)</label><input type="number" id="kit-margem" oninput="calcularMargemKit()"></div>
-                    <div class="input-group"><label>Venda (R$)</label><input type="number" id="kit-preco" oninput="calcularPrecoKit()"></div>
-                </div>
-                <button class="btn-salvar" onclick="salvarKit()">Salvar Kit</button>
-            </div>
-        </section>
-
-        <!-- ABA: Ingredientes -->
-        <section id="ingredientes" class="tab-content">
-            <div class="header-section" style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h2>Estoque Inteligente</h2>
-                    <p>Gerencie insumos divididos por categoria.</p>
-                </div>
-                <div class="input-group" style="margin: 0; min-width: 250px;">
-                    <input type="text" id="busca-estoque" placeholder="Buscar ingrediente..." oninput="atualizarTabelaIngredientes()" style="border-color: var(--cor-10);">
-                </div>
-            </div>
-            
-            <div class="form-container form-linha">
-                <input type="hidden" id="ing-id">
-                <div class="input-group"><label>Categoria</label><input type="text" id="ing-cat" placeholder="Ex: Secos, Laticínios"></div>
-                <div class="input-group" style="flex: 2;"><label>Ingrediente</label><input type="text" id="ing-nome"></div>
-                <div class="input-group"><label>Medida</label>
-                    <select id="ing-unidade"><option value="g">g</option><option value="ml">ml</option><option value="un">un</option></select>
-                </div>
-                <div class="input-group"><label>Qtd Pacote</label><input type="number" id="ing-peso"></div>
-                <div class="input-group"><label>Preço (R$)</label><input type="number" id="ing-preco" step="0.01"></div>
-                <button class="btn-salvar" onclick="salvarIngrediente()">Salvar</button>
-            </div>
-            <div id="tabela-ingredientes-container"></div>
-        </section>
-
-        <!-- ABA: Embalagens (Mantida) -->
-        <!-- ABA: Embalagens e Kits -->
-        <section id="embalagens" class="tab-content">
-            <div class="header-section">
-                <h2>Embalagens e Insumos</h2>
-                <p>Cadastre caixas, forminhas, laços e adesivos. (Ex: Pacote de forminha vem 100 un.)</p>
-            </div>
-            
-            <div class="form-container form-linha">
-                <input type="hidden" id="emb-id">
-                <div class="input-group">
-                    <label>Nome do Item</label>
-                    <input type="text" id="emb-nome" placeholder="Ex: Caixa p/ 4 Doces">
-                </div>
-                <div class="input-group">
-                    <label>Qtd. no Pacote</label>
-                    <input type="number" id="emb-qtd" placeholder="Ex: 50">
-                </div>
-                <div class="input-group">
-                    <label>Preço Pago (R$)</label>
-                    <input type="number" id="emb-preco" placeholder="Ex: 45.00" step="0.01">
-                </div>
-                <button class="btn-salvar" onclick="salvarEmbalagem()"><i class="fa-solid fa-plus"></i> Salvar</button>
-            </div>
-            
-            <div class="lista-itens">
-                <table class="tabela-dados">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Pacote (Qtd)</th>
-                            <th>Preço</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-embalagens-body"></tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- ABA: Configurações -->
-        <section id="configuracoes" class="tab-content">
-            <div class="header-section"><h2>Configurações e Custos</h2></div>
-            <div class="form-container">
-                <div class="input-group"><label>Salário Desejado</label><input type="number" id="conf-salario"></div>
-                <div class="input-group"><label>Horas/Mês</label><input type="number" id="conf-horas"></div>
-                <div class="input-group"><label>Taxa Custos Fixos (%)</label><input type="number" id="conf-taxa"></div>
-                <button class="btn-salvar" onclick="salvarConfiguracoes()">Salvar Custos Base</button>
-            </div>
-            
-            <hr class="divisor">
-            
-            <div class="form-container" style="border-left-color: #8e44ad;">
-                <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Ajuste de Margem em Lote</h3>
-                <p style="font-size: 0.9rem; margin-bottom: 15px;">Mude o lucro de uma categoria inteira de uma só vez.</p>
-                <div class="form-linha">
-                    <div class="input-group">
-                        <label>Categoria Alvo</label>
-                        <select id="lote-categoria"></select>
+                        <label>Nome do Item</label>
+                        <input type="text" id="emb-nome" placeholder="Ex: Caixa p/ 4 Doces">
                     </div>
                     <div class="input-group">
-                        <label>Nova Margem (%)</label>
-                        <input type="number" id="lote-margem">
+                        <label>Qtd. no Pacote</label>
+                        <input type="number" id="emb-qtd" placeholder="Ex: 50">
                     </div>
-                    <button class="btn-salvar" style="background: #8e44ad;" onclick="aplicarMargemEmLote()">Aplicar a Todos</button>
+                    <div class="input-group">
+                        <label>Preço Pago (R$)</label>
+                        <input type="number" id="emb-preco" placeholder="Ex: 45.00" step="0.01">
+                    </div>
+                    <button class="btn-salvar" onclick="salvarEmbalagem()"><i class="fa-solid fa-plus"></i> Salvar</button>
                 </div>
-            </div>
-        </section>
-    </main>
+                
+                <div class="lista-itens" style="overflow-x: auto;">
+                    <table class="tabela-dados">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Pacote (Qtd)</th>
+                                <th>Preço</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-embalagens-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ABA: Configurações -->
+            <section id="configuracoes" class="tab-content">
+                <div class="header-section"><h2>Configurações e Custos</h2></div>
+                <div class="form-container">
+                    <div class="input-group"><label>Salário Desejado</label><input type="number" id="conf-salario"></div>
+                    <div class="input-group"><label>Horas/Mês</label><input type="number" id="conf-horas"></div>
+                    <div class="input-group"><label>Taxa Custos Fixos (%)</label><input type="number" id="conf-taxa"></div>
+                    <button class="btn-salvar" onclick="salvarConfiguracoes()">Salvar Custos Base</button>
+                </div>
+                
+                <hr class="divisor">
+                
+                <div class="form-container" style="border-left-color: #8e44ad;">
+                    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Ajuste de Margem em Lote</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 15px;">Mude o lucro de uma categoria inteira de uma só vez.</p>
+                    <div class="form-linha">
+                        <div class="input-group">
+                            <label>Categoria Alvo</label>
+                            <select id="lote-categoria"></select>
+                        </div>
+                        <div class="input-group">
+                            <label>Nova Margem (%)</label>
+                            <input type="number" id="lote-margem">
+                        </div>
+                        <button class="btn-salvar" style="background: #8e44ad;" onclick="aplicarMargemEmLote()">Aplicar a Todos</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>

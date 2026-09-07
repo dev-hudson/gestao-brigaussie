@@ -14,67 +14,70 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 window.auth = auth;
 
-// CAPTURA O RESULTADO DO REDIRECIONAMENTO DO GOOGLE
-auth.getRedirectResult().catch((error) => {
-    console.error("Erro no redirect do Google:", error);
-    alert("Erro no login com Google: " + error.message);
-});
+// MUDAR ABAS DO LOGIN
+function alternarAbaLogin(aba) {
+    document.getElementById('box-entrar').style.display = aba === 'entrar' ? 'block' : 'none';
+    document.getElementById('box-cadastrar').style.display = aba === 'cadastrar' ? 'block' : 'none';
+    
+    if (aba === 'entrar') {
+        document.getElementById('tab-btn-entrar').classList.add('active');
+        document.getElementById('tab-btn-cadastrar').classList.remove('active');
+    } else {
+        document.getElementById('tab-btn-cadastrar').classList.add('active');
+        document.getElementById('tab-btn-entrar').classList.remove('active');
+    }
+}
 
-// MONITOR DE LOGIN
+// MONITOR DE LOGIN (ESCONDE/MOSTRA O APP INTEIRO)
 window.auth.onAuthStateChanged(user => {
     if (user) {
-        document.getElementById('auth-logged-out').style.display = 'none';
-        document.getElementById('auth-logged-in').style.display = 'flex';
-        document.getElementById('user-display').innerText = user.email;
-        // Salva o e-mail localmente para referência
+        // Usuário logado: Esconde o login e mostra o App
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-screen').style.display = 'block';
+        document.getElementById('user-display').innerText = user.email || user.displayName;
         setAuthEmail(user.email);
     } else {
-        document.getElementById('auth-logged-out').style.display = 'flex';
-        document.getElementById('auth-logged-in').style.display = 'none';
+        // Usuário deslogado: Esconde o App e mostra o login em tela cheia
+        document.getElementById('login-screen').style.display = 'flex';
+        document.getElementById('app-screen').style.display = 'none';
     }
 });
+
+// APLICAR PERSISTÊNCIA (MANTER CONECTADO)
+async function configurarPersistencia() {
+    const checkbox = document.getElementById('manter-conectado');
+    const manter = checkbox ? checkbox.checked : true; // Se não achar, assume true
+    const tipo = manter ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
+    await window.auth.setPersistence(tipo);
+}
 
 // 3. FUNÇÕES DE AUTENTICAÇÃO
 async function criarContaEmail() {
-    const emailInput = document.getElementById('auth-email');
-    const senhaInput = document.getElementById('auth-senha');
-    
-    if (!emailInput || !senhaInput) {
-        alert("Erro crítico: Elementos de input não encontrados no HTML.");
-        return;
-    }
+    const nome = document.getElementById('cadastro-nome').value.trim();
+    const email = document.getElementById('cadastro-email').value.trim();
+    const senha = document.getElementById('cadastro-senha').value.trim();
 
-    const email = emailInput.value.trim();
-    const senha = senhaInput.value.trim();
-
-    if (!email || !senha) {
-        alert("Por favor, preencha o e-mail e a senha.");
-        return;
-    }
+    if (!email || !senha) return alert("Por favor, preencha o e-mail e a senha.");
 
     try {
-        await window.auth.createUserWithEmailAndPassword(email, senha);
-        alert("Conta criada e logada com sucesso!");
+        await configurarPersistencia();
+        const userCredential = await window.auth.createUserWithEmailAndPassword(email, senha);
+        if (nome && userCredential.user) {
+            await userCredential.user.updateProfile({ displayName: nome });
+        }
     } catch (error) {
         alert("Erro ao criar conta: " + error.message);
     }
 }
 
 async function entrarComEmail() {
-    const emailInput = document.getElementById('auth-email');
-    const senhaInput = document.getElementById('auth-senha');
+    const email = document.getElementById('login-email').value.trim();
+    const senha = document.getElementById('login-senha').value.trim();
     
-    if (!emailInput || !senhaInput) return;
-
-    const email = emailInput.value.trim();
-    const senha = senhaInput.value.trim();
-
-    if (!email || !senha) {
-        alert("Por favor, preencha o e-mail e a senha.");
-        return;
-    }
+    if (!email || !senha) return alert("Por favor, preencha o e-mail e a senha.");
 
     try {
+        await configurarPersistencia();
         await window.auth.signInWithEmailAndPassword(email, senha);
     } catch (error) {
         alert("Erro ao entrar: Verifique e-mail e senha.");
@@ -82,15 +85,13 @@ async function entrarComEmail() {
 }
 
 async function entrarComGoogle() {
-    console.log("Botão do Google foi clicado!"); // Adicionado para rastrear
     try {
+        await configurarPersistencia();
         const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({
-            prompt: 'select_account'
-        });
+        provider.setCustomParameters({ prompt: 'select_account' });
         await window.auth.signInWithPopup(provider);
     } catch (error) {
-        console.error("Erro detalhado do Google:", error);
+        console.error("Erro no pop-up do Google:", error);
         alert("Erro no login com Google: " + error.message);
     }
 }
@@ -103,7 +104,7 @@ async function fazerLogout() {
     }
 }
 
-// ====== VARIÁVEIS GERAIS ======
+// ====== VARIÁVEIS GERAIS (DADOS INTACTOS) ======
 let configuracoes = { salario: 0, horas: 0, taxaFixa: 0, valorHora: 0 };
 let ingredientes = [];
 let embalagens = [];
@@ -112,7 +113,6 @@ let receitaAtualComposicao = [];
 let kitAtualComposicao = [];
 let emailAuth = localStorage.getItem('emailAuth') || '';
 
-// NOVO: Controle de pastas e ordenação
 let categoriasExpandidas = new Set();
 let ordemCategorias = []; 
 let ordemManual = false; 
@@ -121,10 +121,6 @@ let dragId = null;
 
 // ====== INICIALIZAÇÃO ======
 document.addEventListener('DOMContentLoaded', () => {
-    const userEmailInput = document.getElementById('user-email');
-    if (userEmailInput) {
-        userEmailInput.value = emailAuth;
-    }
     carregarDadosLocal();
 });
 
@@ -138,7 +134,7 @@ function openTab(tabId) {
 }
 
 // -----------------------------------------------------
-// 1. CLOUD SAVE E AUTENTICAÇÃO (PYTHON BACKEND)
+// CLOUD SAVE E AUTENTICAÇÃO (PYTHON BACKEND)
 // -----------------------------------------------------
 function setAuthEmail(email) {
     emailAuth = email;
@@ -153,8 +149,6 @@ async function sincronizarNuvem() {
     
     try {
         const token = await user.getIdToken();
-        
-        // Mapeamento exato das suas variáveis globais
         const dados = {
             receitas: receitas || [],
             ingredientes: ingredientes || [],
@@ -192,7 +186,6 @@ async function baixarNuvem() {
     
     try {
         const token = await user.getIdToken();
-        
         const res = await fetch('https://brigaussie-api.onrender.com/api/dados', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
@@ -202,18 +195,15 @@ async function baixarNuvem() {
             const json = await res.json();
             const dados = json.dados || {};
 
-            // Substitui as variáveis locais pelo que veio do banco de dados
             if (dados.receitas) receitas = dados.receitas;
             if (dados.ingredientes) ingredientes = dados.ingredientes;
-            if (dados.embalagens) embalagens = dados.embalagens;
+            if (dados.embalagens) embalagens = embalagens;
             if (dados.configuracoes) configuracoes = dados.configuracoes;
             if (dados.ordemCategorias) ordemCategorias = dados.ordemCategorias;
             if (dados.ordemManual !== undefined) ordemManual = dados.ordemManual;
 
-            // Salva fisicamente no navegador para não perder ao fechar a aba
             salvarNoNavegador();
 
-            // Atualiza todas as abas da tela dinamicamente, sem F5
             atualizarTelaConfiguracoes();
             atualizarTabelaIngredientes();
             atualizarTabelaEmbalagens();
@@ -285,9 +275,7 @@ function atualizarTelaConfiguracoes() {
     }
 }
 
-// -----------------------------------------------------
-// 3 & 7. ESTOQUE (CATEGORIAS E BUSCA INTELIGENTE)
-// -----------------------------------------------------
+// ====== ESTOQUE ======
 function salvarIngrediente() {
     const idEdit = document.getElementById('ing-id').value;
     const cat = document.getElementById('ing-cat').value || 'Geral';
@@ -346,9 +334,10 @@ function atualizarTabelaIngredientes() {
     for(let cat in grupos) {
         let html = `
             <div class="categoria-titulo" style="background: var(--cor-30-escuro); padding: 10px; font-weight: bold; margin-top: 20px; border-radius: 5px; color: var(--cor-60);">${cat}</div>
-            <table class="tabela-dados" style="width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; margin-top: 5px;">
-            <thead><tr><th>Ingrediente</th><th>Pacote</th><th>Preço</th><th>Ações</th></tr></thead>
-            <tbody>`;
+            <div style="overflow-x: auto;">
+                <table class="tabela-dados" style="width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; margin-top: 5px;">
+                <thead><tr><th>Ingrediente</th><th>Pacote</th><th>Preço</th><th>Ações</th></tr></thead>
+                <tbody>`;
         grupos[cat].forEach(ing => {
             const und = ing.unidade || 'g/ml';
             html += `<tr>
@@ -361,7 +350,7 @@ function atualizarTabelaIngredientes() {
                 </td>
             </tr>`;
         });
-        html += `</tbody></table>`;
+        html += `</tbody></table></div>`;
         container.innerHTML += html;
     }
 }
@@ -375,8 +364,6 @@ function editarIngrediente(id) {
         document.getElementById('ing-unidade').value = ing.unidade || 'g'; 
         document.getElementById('ing-peso').value = ing.peso;
         document.getElementById('ing-preco').value = ing.preco;
-        
-        // Rola a página suavemente para o formulário no topo da aba
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
@@ -389,9 +376,7 @@ function excluirIngrediente(id) {
     }
 }
 
-// ==========================================
-// LÓGICA DE EMBALAGENS
-// ==========================================
+// ====== EMBALAGENS ======
 function salvarEmbalagem() {
     const idEdit = document.getElementById('emb-id').value;
     const nome = document.getElementById('emb-nome').value;
@@ -454,9 +439,7 @@ function excluirEmbalagem(id) {
     }
 }
 
-// ==========================================
-// SELECTS E COMPOSIÇÃO DE RECEITAS
-// ==========================================
+// ====== SELECTS E RECEITAS ======
 function atualizarSelects() {
     const select = document.getElementById('rec-item-select');
     const sk = document.getElementById('kit-item-select');
@@ -532,7 +515,7 @@ function calcularCustosDaReceita() {
             custoInsumos += custoReal;
 
             lista.innerHTML += `
-                <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap;">
                     <span>${item.nome}</span> 
                     <span>
                         <input type="number" class="input-inline" value="${item.qtdUsada}" oninput="atualizarQtdInline(${item.idUnico}, this.value)" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"> ${item.unidade}
@@ -651,9 +634,7 @@ function limparFormularioReceita() {
     calcularCustosDaReceita();
 }
 
-// -----------------------------------------------------
-// 6. MÓDULO DE KITS E ENCOMENDAS
-// -----------------------------------------------------
+// ====== KITS E ENCOMENDAS ======
 function adicionarItemNoKit() {
     const id = document.getElementById('kit-item-select').value;
     const qtd = parseFloat(document.getElementById('kit-item-qtd').value);
@@ -704,7 +685,7 @@ function calcularCustosKit() {
         custoTotal += custoLinha;
 
         lista.innerHTML += `
-            <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+            <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap;">
                 <span>${nome}</span>
                 <span>
                     <input type="number" class="input-inline" value="${item.qtdUsada}" oninput="atualizarQtdKit(${item.idUnico}, this.value)" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"> un
@@ -773,9 +754,7 @@ function salvarKit() {
     openTab('receitas');
 }
 
-// -----------------------------------------------------
-// 4 & 5. DRAG & DROP + COLAPSÁVEIS + RENDERIZAÇÃO
-// -----------------------------------------------------
+// ====== RENDERIZAÇÃO DE RECEITAS E DRAG & DROP ======
 function toggleCategoria(cat) {
     if(categoriasExpandidas.has(cat)) categoriasExpandidas.delete(cat);
     else categoriasExpandidas.add(cat);
@@ -880,7 +859,7 @@ function atualizarTelaReceitas() {
                     <div class="card-receita-resumo">
                         <div class="info-principal">
                             <h3 style="margin: 0; color: var(--cor-60); margin-bottom: 5px;">${rec.nome} ${rec.isKit?'(KIT)':''}</h3>
-                            <p class="rendimento">Rende: ${rec.rendimento} unidades</p>
+                            <p class="rendimento">Rende: ${rec.rendimento} units</p>
                         </div>
                         <div class="valores-resumo">
                             <div class="valor">
@@ -924,7 +903,7 @@ function atualizarTelaReceitas() {
                             <p><strong>Custo Total (Massa):</strong> R$ ${rec.custos.totalMassa.toFixed(2).replace('.', ',')}</p>
                             <p><strong>Lucro Líquido Real:</strong> <span style="color: ${lucroUnidade >= 0 ? 'var(--cor-10)' : 'red'};">R$ ${lucroUnidade.toFixed(2).replace('.', ',')} (${(rec.margem || 0).toFixed(1)}%)</span></p>
                         </div>
-                        <div class="acoes-edicao" style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <div class="acoes-edicao" style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
                             <button class="btn-icon" style="background-color: var(--cor-60);" onclick="duplicarReceita(event, '${rec.id}')"><i class="fa-solid fa-copy"></i> Duplicar</button>
                             <button class="btn-editar" onclick="editarReceitaSalva(event, '${rec.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
                             <button class="btn-excluir" onclick="excluirReceitaUnica(event, '${rec.id}')"><i class="fa-solid fa-trash"></i> Excluir</button>
@@ -937,7 +916,7 @@ function atualizarTelaReceitas() {
         container.innerHTML += htmlCat;
     });
 }
-// DRAG & DROP DE CATEGORIAS
+
 function iniciarDragCat(event, cat) {
     dragCatId = cat;
     event.dataTransfer.effectAllowed = 'move';
@@ -964,7 +943,6 @@ function soltarDragCat(event, catDestino) {
     dragCatId = null;
 }
 
-// DRAG & DROP DE RECEITAS
 function iniciarDragReceita(event, id) {
     event.stopPropagation(); 
     dragId = id;
@@ -1062,9 +1040,7 @@ function editarReceitaSalva(event, id) {
     }
 }
 
-// -----------------------------------------------------
-// 8. AJUSTE DE MARGEM EM LOTE
-// -----------------------------------------------------
+// ====== LOTE DE MARGEM ======
 function preencherSelectLote() {
     const sel = document.getElementById('lote-categoria');
     if(!sel) return;
