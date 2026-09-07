@@ -911,7 +911,7 @@ function atualizarTelaReceitas() {
                         else if (emb) custoExibicao = (emb.preco / emb.qtd) * item.qtdUsada;
                     }
                     let nomeExibicao = item.nome || (receitas.find(r=>r.id===item.idOriginal)?.nome) || (embalagens.find(e=>e.id===item.idOriginal)?.nome);
-                    htmlComposicao += `<li><span>${nomeExibicao} (${item.qtdUsada} ${item.unidade || 'un'})</span> <span>R$ ${custoExibicao.toFixed(2).replace('.', ',')}</span></li>`;
+                    htmlComposicao += `<li><span>${nomeExibicao} (${item.qtdUsada} ${item.unidade || 'un'})</span> <span>R$&nbsp;${custoExibicao.toFixed(2).replace('.', ',')}</span></li>`;
                 });
 
                 let lucroUnidade = rec.precoVenda - rec.custos.unitario;
@@ -962,15 +962,15 @@ function atualizarTelaReceitas() {
                             ${htmlComposicao}
                             ${!rec.isKit ? `
                             <li style="color: var(--cor-60); font-weight: bold; background: #f9f9f9; padding: 5px;">
-                                <span>Seu Tempo (${rec.tempo} min)</span> <span>R$ ${rec.custos.maoDeObra.toFixed(2).replace('.', ',')}</span>
+                                <span>Seu Tempo (${rec.tempo} min)</span> <span>R$&nbsp;${rec.custos.maoDeObra.toFixed(2).replace('.', ',')}</span>
                             </li>
                             <li style="color: var(--cor-60); font-weight: bold; background: #f9f9f9; padding: 5px;">
-                                <span>Custos Fixos/Invisíveis</span> <span>R$ ${rec.custos.fixo.toFixed(2).replace('.', ',')}</span>
+                                <span>Custos Fixos/Invisíveis</span> <span>R$${rec.custos.fixo.toFixed(2).replace('.', ',')}</span>
                             </li>` : ''}
                         </ul>
-                        <div class="totais-detalhes" style="background-color: var(--cor-30-escuro); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: right;">
-                            <p><strong>Custo Total (Massa):</strong> R$ ${rec.custos.totalMassa.toFixed(2).replace('.', ',')}</p>
-                            <p><strong>Lucro Líquido Real:</strong> <span style="color: ${lucroUnidade >= 0 ? 'var(--cor-10)' : 'red'};">R$ ${lucroUnidade.toFixed(2).replace('.', ',')} (${(rec.margem || 0).toFixed(1)}%)</span></p>
+                        <div class="totais-detalhes" style="background-color: var(--cor-30-escuro); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <p><strong>Custo Total (Massa):</strong> <span>R$&nbsp;${rec.custos.totalMassa.toFixed(2).replace('.', ',')}</span></p>
+                            <p><strong>Lucro Líquido Real:</strong> <span style="color: ${lucroUnidade >= 0 ? 'var(--cor-10)' : 'red'}; white-space: nowrap;">R$&nbsp;${lucroUnidade.toFixed(2).replace('.', ',')} (${(rec.margem || 0).toFixed(1)}%)</span></p>
                         </div>
                         <div class="acoes-edicao" style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
                             <button class="btn-icon" style="background-color: var(--cor-60);" onclick="duplicarReceita(event, '${rec.id}')"><i class="fa-solid fa-copy"></i> Duplicar</button>
@@ -1474,3 +1474,4 @@ function excluirHistoricoAcerto(id) {
         renderizarHistoricoAcertos();
     }
 }
+
