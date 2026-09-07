@@ -310,7 +310,7 @@ async function baixarNuvem() {
 
             if (dados.receitas) receitas = dados.receitas;
             if (dados.ingredientes) ingredientes = dados.ingredientes;
-            if (dados.embalagens) embalagens = embalagens;
+            if (dados.embalagens) embalagens = dados.embalagens;
             if (dados.configuracoes) configuracoes = dados.configuracoes;
             if (dados.ordemCategorias) ordemCategorias = dados.ordemCategorias;
             if (dados.ordemManual !== undefined) ordemManual = dados.ordemManual;
@@ -1182,4 +1182,236 @@ function aplicarMargemEmLote() {
     salvarNoNavegador();
     atualizarTelaReceitas();
     alert("Margens atualizadas em lote com sucesso!");
+}
+
+
+// ==========================================
+// ABA: ACERTO DE CAIXA
+// ==========================================
+let acertoProdutos = [];
+let acertoEmbalagens = [];
+
+function atualizarSelectsAcerto() {
+    const selProd = document.getElementById('acerto-produto-select');
+    const selEmb = document.getElementById('acerto-embalagem-select');
+    
+    if (selProd) {
+        selProd.innerHTML = '<option value="">-- Escolha Receita ou Kit --</option>';
+        
+        // Agrupa as receitas por categoria usando optgroups nativos profissionais
+        const categoriasReceitas = {};
+        receitas.forEach(r => {
+            const cat = r.categoria || 'Geral';
+            if (!categoriasReceitas[cat]) categoriasReceitas[cat] = [];
+            categoriasReceitas[cat].push(r);
+        });
+
+        for (const cat in categoriasReceitas) {
+            let optgroup = document.createElement('optgroup');
+            optgroup.label = `📁 ${cat}`;
+            categoriasReceitas[cat].forEach(r => {
+                let opt = document.createElement('option');
+                opt.value = `R-${r.id}`;
+                opt.textContent = r.nome; // Sem o prefixo [Receita]
+                optgroup.appendChild(opt);
+            });
+            selProd.appendChild(optgroup);
+        }
+
+        if (kits.length > 0) {
+            let optgroupKits = document.createElement('optgroup');
+            optgroupKits.label = '📁 Kits / Encomendas';
+            kits.forEach(k => {
+                let opt = document.createElement('option');
+                opt.value = `K-${k.id}`;
+                opt.textContent = k.nome;
+                optgroupKits.appendChild(opt);
+            });
+            selProd.appendChild(optgroupKits);
+        }
+    }
+
+    if (selEmb) {
+        selEmb.innerHTML = '<option value="">-- Escolha Embalagem --</option>';
+        embalagens.forEach(e => {
+            selEmb.innerHTML += `<option value="${e.id}">${e.nome}</option>`;
+        });
+    }
+}
+
+function addProdutoAcerto() {
+    const select = document.getElementById('acerto-produto-select');
+    const qtdInput = document.getElementById('acerto-produto-qtd');
+    
+    if (!select.value || !qtdInput.value) {
+        return alert("Selecione um item e informe uma quantidade válida.");
+    }
+
+    const [tipo, id] = select.value.split('-');
+    const nome = select.options[select.selectedIndex].text;
+    const qtd = parseFloat(qtdInput.value);
+
+    if (isNaN(qtd) || qtd <= 0) {
+        return alert("Informe uma quantidade válida.");
+    }
+
+    acertoProdutos.push({ tipo, id, nome, qtd });
+    select.value = '';
+    qtdInput.value = '';
+    renderizarListasAcerto();
+}
+
+function addEmbalagemAcerto() {
+    const select = document.getElementById('acerto-embalagem-select');
+    const qtdInput = document.getElementById('acerto-embalagem-qtd');
+    
+    if (!select.value || !qtdInput.value) {
+        return alert("Selecione uma embalagem e informe uma quantidade.");
+    }
+
+    const id = select.value;
+    const nome = select.options[select.selectedIndex].text;
+    const qtd = parseFloat(qtdInput.value);
+
+    if (isNaN(qtd) || qtd <= 0) {
+        return alert("Informe uma quantidade válida.");
+    }
+
+    acertoEmbalagens.push({ id, nome, qtd });
+    select.value = '';
+    qtdInput.value = '';
+    renderizarListasAcerto();
+}
+
+function extrairCustosReceita(receitaId) {
+    const rec = receitas.find(r => r.id == receitaId);
+    if (!rec) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
+
+    let cInsumos = 0, cEmb = 0;
+    rec.composicao.forEach(item => {
+        if (item.tipo === 'ingrediente') {
+            const ing = ingredientes.find(i => i.id == item.id);
+            if (ing) cInsumos += (ing.preco / ing.peso) * item.qtd;
+        } else if (item.tipo === 'embalagem') {
+            const emb = embalagens.find(e => e.id == item.id);
+            if (emb) cEmb += (emb.preco / emb.qtd) * item.qtd;
+        }
+    });
+
+    const valorMinuto = (configuracoes.salario / configuracoes.horas) / 60 || 0;
+    const cMaoDeObra = valorMinuto * (rec.tempo || 0);
+    const cFixos = (cInsumos + cMaoDeObra + cEmb) * ((configuracoes.taxaFixa || 0) / 100);
+    const rend = rec.rendimento || 1;
+
+    return { insumos: cInsumos / rend, fixos: cFixos / rend, maoDeObra: cMaoDeObra / rend, embalagens: cEmb / rend };
+}
+
+function extrairCustosKit(kitId) {
+    const kit = kits.find(k => k.id == kitId);
+    if (!kit) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
+    
+    let kIns = 0, kFix = 0, kMo = 0, kEmb = 0;
+    kit.composicao.forEach(item => {
+        if (item.tipo === 'receita') {
+            const rx = extrairCustosReceita(item.id);
+            kIns += rx.insumos * item.qtd;
+            kFix += rx.fixos * item.qtd;
+            kMo += rx.maoDeObra * item.qtd;
+            kEmb += rx.embalagens * item.qtd;
+        } else if (item.tipo === 'embalagem') {
+            const emb = embalagens.find(e => e.id == item.id);
+            if (emb) kEmb += (emb.preco / emb.qtd) * item.qtd;
+        }
+    });
+    return { insumos: kIns, fixos: kFix, maoDeObra: kMo, embalagens: kEmb };
+}
+
+function formatarBRL(valor) {
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function renderizarListasAcerto() {
+    const ulProd = document.getElementById('lista-acerto-produtos');
+    const ulEmb = document.getElementById('lista-acerto-embalagens');
+    
+    if (ulProd) {
+        ulProd.innerHTML = acertoProdutos.map((item, index) => {
+            const rx = item.tipo === 'R' ? extrairCustosReceita(item.id) : extrairCustosKit(item.id);
+            const ins = formatarBRL(rx.insumos * item.qtd);
+            const fix = formatarBRL(rx.fixos * item.qtd);
+            const mo = formatarBRL(rx.maoDeObra * item.qtd);
+            
+            return `<li style="flex-direction: column; align-items: flex-start; gap: 5px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span><strong>${item.qtd}x</strong> ${item.nome}</span>
+                    <button class="btn-excluir" onclick="removerItemAcerto('prod', ${index})"><i class="fa-solid fa-trash"></i></button>
+                </div>
+                <div style="font-size: 0.8rem; color: #27ae60; background: #e8f8f5; padding: 4px 8px; border-radius: 4px; border: 1px solid #bce8d8;">
+                    <i class="fa-solid fa-microscope"></i> Raio-X: Insumos: ${ins} | Fixos: ${fix} | Pró-labore: ${mo}
+                </div>
+            </li>`;
+        }).join('');
+    }
+    
+    if (ulEmb) {
+        ulEmb.innerHTML = acertoEmbalagens.map((item, index) => 
+            `<li style="display: flex; justify-content: space-between; align-items: center;">
+                <span><strong>${item.qtd}x</strong> ${item.nome}</span>
+                <button class="btn-excluir" onclick="removerItemAcerto('emb', ${index})"><i class="fa-solid fa-trash"></i></button>
+            </li>`
+        ).join('');
+    }
+}
+
+function removerItemAcerto(lista, index) {
+    if (lista === 'prod') acertoProdutos.splice(index, 1);
+    else acertoEmbalagens.splice(index, 1);
+    renderizarListasAcerto();
+}
+
+function calcularAcertoCaixa() {
+    const faturamento = parseFloat(document.getElementById('acerto-faturamento').value);
+    const percEmpresa = parseFloat(document.getElementById('acerto-porcentagem').value);
+    
+    if (isNaN(faturamento) || isNaN(percEmpresa)) {
+        return alert("Preencha o faturamento e a porcentagem da empresa.");
+    }
+
+    let totReposicao = 0; 
+    let totMaoDeObra = 0; 
+    let totEmbalagens = 0; 
+
+    acertoProdutos.forEach(prod => {
+        const rx = prod.tipo === 'R' ? extrairCustosReceita(prod.id) : extrairCustosKit(prod.id);
+        totReposicao += (rx.insumos + rx.fixos) * prod.qtd;
+        totMaoDeObra += rx.maoDeObra * prod.qtd;
+        totEmbalagens += rx.embalagens * prod.qtd;
+    });
+
+    acertoEmbalagens.forEach(item => {
+        const emb = embalagens.find(e => e.id == item.id);
+        if (emb) totEmbalagens += (emb.preco / emb.qtd) * item.qtd;
+    });
+
+    const custoProducao = totReposicao + totMaoDeObra;
+    const custoTotalSaida = custoProducao + totEmbalagens;
+    const lucroLiquido = faturamento - custoTotalSaida;
+    
+    const fatiaEmpresa = lucroLiquido * (percEmpresa / 100);
+    const fatiaEu = lucroLiquido - fatiaEmpresa;
+
+    document.getElementById('res-acerto-producao').innerText = formatarBRL(custoProducao);
+    document.getElementById('res-acerto-embalagens').innerText = formatarBRL(totEmbalagens);
+    document.getElementById('res-acerto-custototal').innerText = formatarBRL(custoTotalSaida);
+    document.getElementById('res-acerto-lucroliquido').innerText = formatarBRL(lucroLiquido);
+    
+    document.getElementById('res-acerto-cpf').innerText = formatarBRL(totMaoDeObra + fatiaEu);
+    document.getElementById('res-acerto-prolabore').innerText = formatarBRL(totMaoDeObra);
+    document.getElementById('res-acerto-lucro-cpf').innerText = formatarBRL(fatiaEu);
+
+    document.getElementById('res-acerto-cnpj').innerText = formatarBRL(totReposicao + totEmbalagens + fatiaEmpresa);
+    document.getElementById('res-acerto-reposicao').innerText = formatarBRL(totReposicao + totEmbalagens);
+    document.getElementById('res-acerto-lucro-cnpj').innerText = formatarBRL(fatiaEmpresa);
+
+    document.getElementById('painel-resultado-acerto').style.display = 'flex';
 }

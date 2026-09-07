@@ -114,6 +114,7 @@
                 <button class="tab-btn" onclick="openTab('ingredientes')">Ingredientes</button>
                 <button class="tab-btn" onclick="openTab('embalagens')">Embalagens</button>
                 <button class="tab-btn" onclick="openTab('configuracoes')">Configurações</button>
+                <button class="tab-btn" onclick="openTab('acerto-caixa'); atualizarSelectsAcerto();">Acerto de Caixa</button>
             </nav>
         </header>
 
@@ -310,6 +311,89 @@
                             <input type="number" id="lote-margem">
                         </div>
                         <button class="btn-salvar" style="background: #8e44ad;" onclick="aplicarMargemEmLote()">Aplicar a Todos</button>
+                    </div>
+                </div>
+            </section>
+            <!-- ABA: Acerto de Caixa -->
+            <section id="acerto-caixa" class="tab-content">
+                <div class="header-section">
+                    <h2>Acerto de Caixa</h2>
+                    <p>Calcule a divisão exata dos lucros e custos do dia entre a Empresa (CNPJ) e Você (CPF).</p>
+                </div>
+
+                <div class="form-container" style="border-left-color: #27ae60;">
+                    <div class="form-linha">
+                        <div class="input-group">
+                            <label>Data da Venda</label>
+                            <input type="date" id="acerto-data">
+                        </div>
+                        <div class="input-group">
+                            <label>Faturamento Total (R$)</label>
+                            <input type="number" id="acerto-faturamento" placeholder="Dinheiro real que entrou" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Lucro da Empresa (%)</label>
+                            <input type="number" id="acerto-porcentagem" placeholder="Ex: 30" value="30">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-container">
+                    <h3>1. Produtos Vendidos</h3>
+                    <div class="form-linha">
+                        <div class="input-group" style="flex: 2;">
+                            <label>Receita ou Kit</label>
+                            <select id="acerto-produto-select"></select>
+                        </div>
+                        <div class="input-group">
+                            <label>Quantidade</label>
+                            <input type="number" id="acerto-produto-qtd" placeholder="Qtd">
+                        </div>
+                        <button class="btn-salvar" onclick="addProdutoAcerto()"><i class="fa-solid fa-plus"></i> Add</button>
+                    </div>
+                    <ul class="lista-detalhes" id="lista-acerto-produtos"></ul>
+
+                    <h3 style="margin-top: 20px;">2. Embalagens (Extras/Transporte)</h3>
+                    <div class="form-linha">
+                        <div class="input-group" style="flex: 2;">
+                            <label>Embalagem</label>
+                            <select id="acerto-embalagem-select"></select>
+                        </div>
+                        <div class="input-group">
+                            <label>Quantidade</label>
+                            <input type="number" id="acerto-embalagem-qtd" placeholder="Qtd">
+                        </div>
+                        <button class="btn-salvar" onclick="addEmbalagemAcerto()"><i class="fa-solid fa-plus"></i> Add</button>
+                    </div>
+                    <ul class="lista-detalhes" id="lista-acerto-embalagens"></ul>
+                    
+                    <button class="btn-salvar" style="background: #27ae60; margin-top: 20px; width: 100%; font-size: 1.1rem; padding: 15px;" onclick="calcularAcertoCaixa()">
+                        <i class="fa-solid fa-calculator"></i> Calcular
+                    </button>
+                </div>
+
+                <div class="resultado-acerto" id="painel-resultado-acerto" style="display: none;">
+                    <div class="card-resultado card-geral">
+                        <h3>Raio-X da Venda</h3>
+                        <p>Custo Produção (Insumos + MO): <strong id="res-acerto-producao">R$ 0,00</strong></p>
+                        <p>Custo Embalagens: <strong id="res-acerto-embalagens">R$ 0,00</strong></p>
+                        <hr>
+                        <p><strong>Custo Total da Saída:</strong> <strong id="res-acerto-custototal">R$ 0,00</strong></p>
+                        <p><strong>Lucro Líquido:</strong> <strong id="res-acerto-lucroliquido">R$ 0,00</strong></p>
+                    </div>
+                    
+                    <div class="card-resultado card-cpf">
+                        <h3><i class="fa-solid fa-wallet"></i> Seu Bolso (CPF)</h3>
+                        <h2 id="res-acerto-cpf">R$ 0,00</h2>
+                        <p style="font-size: 0.85rem; margin-top: 10px;">Pró-labore: <span id="res-acerto-prolabore">R$ 0,00</span></p>
+                        <p style="font-size: 0.85rem;">Participação Lucro: <span id="res-acerto-lucro-cpf">R$ 0,00</span></p>
+                    </div>
+
+                    <div class="card-resultado card-cnpj">
+                        <h3><i class="fa-solid fa-building-columns"></i> Caixa Empresa (CNPJ)</h3>
+                        <h2 id="res-acerto-cnpj">R$ 0,00</h2>
+                        <p style="font-size: 0.85rem; margin-top: 10px;">Reposição (Insumos/Emb): <span id="res-acerto-reposicao">R$ 0,00</span></p>
+                        <p style="font-size: 0.85rem;">Participação Lucro: <span id="res-acerto-lucro-cnpj">R$ 0,00</span></p>
                     </div>
                 </div>
             </section>
