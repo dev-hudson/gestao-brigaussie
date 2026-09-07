@@ -28,20 +28,43 @@ function alternarAbaLogin(aba) {
     }
 }
 
-// MONITOR DE LOGIN (ESCONDE/MOSTRA O APP INTEIRO)
-window.auth.onAuthStateChanged(user => {
+// ====== MONITOR DE LOGIN (ATUALIZADO PARA ISOLAR DADOS POR CONTA) ======
+window.auth.onAuthStateChanged(async user => {
     if (user) {
         // Usuário logado: Esconde o login e mostra o App
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-screen').style.display = 'block';
         document.getElementById('user-display').innerText = user.email || user.displayName;
         setAuthEmail(user.email);
+
+        // Opcional: Se quiser que uma conta nova já puxe da nuvem automaticamente ao logar:
+        // await baixarNuvem(); 
     } else {
-        // Usuário deslogado: Esconde o App e mostra o login em tela cheia
+        // Usuário deslogado: Zera os dados locais para não misturar contas e mostra o login
+        zerarDadosMemoriaLocais();
         document.getElementById('login-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
     }
 });
+
+// FUNÇÃO PARA ZERAR DADOS DA TELA AO SAIR OU ENTRAR COM OUTRA CONTA
+function zerarDadosMemoriaLocais() {
+    configuracoes = { salario: 0, horas: 0, taxaFixa: 0, valorHora: 0 };
+    ingredientes = [];
+    embalagens = [];
+    receitas = [];
+    receitaAtualComposicao = []; 
+    kitAtualComposicao = [];
+    localStorage.removeItem('dadosConfeitaria');
+    localStorage.removeItem('emailAuth');
+    
+    // Atualiza a tela para refletir o zero
+    atualizarTelaConfiguracoes();
+    atualizarTabelaIngredientes();
+    atualizarTabelaEmbalagens();
+    atualizarSelects();
+    atualizarTelaReceitas();
+}
 
 // APLICAR PERSISTÊNCIA (MANTER CONECTADO)
 async function configurarPersistencia() {
@@ -52,12 +75,102 @@ async function configurarPersistencia() {
 }
 
 // 3. FUNÇÕES DE AUTENTICAÇÃO
+// ==========================================
+// VALIDAÇÕES DE CADASTRO E UI DE SENHA
+// ==========================================
+
+function togglePassword(inputId, iconElement) {
+    const input = document.getElementById(inputId);
+    if (input.type === "password") {
+        input.type = "text";
+        iconElement.classList.remove("fa-eye");
+        iconElement.classList.add("fa-eye-slash");
+    } else {
+        input.type = "password";
+        iconElement.classList.remove("fa-eye-slash");
+        iconElement.classList.add("fa-eye");
+    }
+}
+
+function validarForcaSenha() {
+    const senha = document.getElementById('cadastro-senha').value;
+    
+    const reqLength = senha.length >= 8;
+    const reqUpper = /[A-Z]/.test(senha);
+    const reqLower = /[a-z]/.test(senha);
+    const reqNumber = /[0-9]/.test(senha);
+    const reqSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+
+    toggleRequisitoUI('req-length', reqLength);
+    toggleRequisitoUI('req-upper', reqUpper);
+    toggleRequisitoUI('req-lower', reqLower);
+    toggleRequisitoUI('req-number', reqNumber);
+    toggleRequisitoUI('req-special', reqSpecial);
+
+    return reqLength && reqUpper && reqLower && reqNumber && reqSpecial;
+}
+
+function toggleRequisitoUI(id, isValid) {
+    const li = document.getElementById(id);
+    const icone = li.querySelector('i');
+    if (isValid) {
+        li.classList.add('valid');
+        icone.classList.remove('fa-xmark');
+        icone.classList.add('fa-check');
+    } else {
+        li.classList.remove('valid');
+        icone.classList.remove('fa-check');
+        icone.classList.add('fa-xmark');
+    }
+}
+
+function validarDataNascimento() {
+    const dataInput = document.getElementById('cadastro-data').value;
+    const erroSpan = document.getElementById('erro-data');
+    
+    if (!dataInput) return false;
+
+    const dataNascimento = new Date(dataInput);
+    const hoje = new Date();
+    
+    if (dataNascimento > hoje) {
+        erroSpan.innerText = "A data não pode estar no futuro.";
+        erroSpan.style.display = "block";
+        return false;
+    }
+    if (hoje.getFullYear() - dataNascimento.getFullYear() > 115) {
+        erroSpan.innerText = "Por favor, insira uma data válida.";
+        erroSpan.style.display = "block";
+        return false;
+    }
+    
+    erroSpan.style.display = "none";
+    return true;
+}
+
+// ATUALIZADA COM AS BARRICADAS DE SEGURANÇA
 async function criarContaEmail() {
     const nome = document.getElementById('cadastro-nome').value.trim();
+    const dataStr = document.getElementById('cadastro-data').value;
     const email = document.getElementById('cadastro-email').value.trim();
-    const senha = document.getElementById('cadastro-senha').value.trim();
+    const senha = document.getElementById('cadastro-senha').value;
+    const senhaConfirma = document.getElementById('cadastro-senha-confirma').value;
 
-    if (!email || !senha) return alert("Por favor, preencha o e-mail e a senha.");
+    if (!nome || !dataStr || !email || !senha || !senhaConfirma) {
+        return alert("Por favor, preencha todos os campos do formulário.");
+    }
+
+    if (!validarDataNascimento()) {
+        return alert("Verifique a data de nascimento.");
+    }
+
+    if (!validarForcaSenha()) {
+        return alert("Sua senha precisa atender a todos os requisitos listados em vermelho.");
+    }
+
+    if (senha !== senhaConfirma) {
+        return alert("As senhas não coincidem. Digite novamente para confirmar.");
+    }
 
     try {
         await configurarPersistencia();

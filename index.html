@@ -9,63 +9,84 @@
 </head>
 <body>
 
-    <!-- TELA DE LOGIN ISOLADA (VISÍVEL APENAS DESLOGADO) -->
-    <div id="login-screen" class="login-fullscreen">
-        <div class="auth-box">
-            <div class="auth-logo">
-                <h2><i class="fa-solid fa-cake-candles"></i> Precificador BrigAussie</h2>
-            </div>
-            
-            <div class="auth-tabs">
-                <button id="tab-btn-entrar" class="active" onclick="alternarAbaLogin('entrar')">Entrar</button>
-                <button id="tab-btn-cadastrar" onclick="alternarAbaLogin('cadastrar')">Cadastrar</button>
-            </div>
-
-            <!-- ABA: ENTRAR -->
-            <div id="box-entrar" class="auth-form active">
-                <div class="input-group">
-                    <label>E-mail</label>
-                    <input type="email" id="login-email" placeholder="Seu e-mail">
-                </div>
-                <div class="input-group">
-                    <label>Senha</label>
-                    <input type="password" id="login-senha" placeholder="Sua senha">
-                </div>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="manter-conectado" checked>
-                    <label for="manter-conectado">Manter conectado</label>
-                </div>
-                <button class="btn-auth btn-entrar" onclick="entrarComEmail()">Entrar</button>
-            </div>
-
-            <!-- ABA: CADASTRAR -->
-            <div id="box-cadastrar" class="auth-form" style="display: none;">
-                <div class="input-group">
-                    <label>Nome Completo</label>
-                    <input type="text" id="cadastro-nome" placeholder="Seu nome">
-                </div>
-                <div class="input-group">
-                    <label>Data de Nascimento</label>
-                    <input type="date" id="cadastro-data">
-                </div>
-                <div class="input-group">
-                    <label>E-mail</label>
-                    <input type="email" id="cadastro-email" placeholder="Seu e-mail">
-                </div>
-                <div class="input-group">
-                    <label>Senha</label>
-                    <input type="password" id="cadastro-senha" placeholder="Crie uma senha forte">
-                </div>
-                <button class="btn-auth btn-entrar" onclick="criarContaEmail()">Criar Conta</button>
-            </div>
-
-            <div class="auth-divider"><span>ou</span></div>
-            
-            <button class="btn-auth btn-google" onclick="entrarComGoogle()">
-                <i class="fa-brands fa-google"></i> Continuar com o Google
-            </button>
+    <!-- TELA DE LOGIN ISOLADA -->
+<div id="login-screen" class="login-fullscreen">
+    <div class="auth-box">
+        <div class="auth-logo">
+            <h2><i class="fa-solid fa-cake-candles"></i> Precificador BrigAussie</h2>
         </div>
+        
+        <div class="auth-tabs">
+            <button id="tab-btn-entrar" class="active" onclick="alternarAbaLogin('entrar')">Entrar</button>
+            <button id="tab-btn-cadastrar" onclick="alternarAbaLogin('cadastrar')">Cadastrar</button>
+        </div>
+
+        <!-- ABA: ENTRAR -->
+        <div id="box-entrar" class="auth-form active">
+            <div class="input-group">
+                <label>E-mail</label>
+                <input type="email" id="login-email" placeholder="Seu e-mail">
+            </div>
+            <div class="input-group">
+                <label>Senha</label>
+                <div class="password-wrapper">
+                    <input type="password" id="login-senha" placeholder="Sua senha">
+                    <i class="fa-regular fa-eye toggle-password" onclick="togglePassword('login-senha', this)"></i>
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="manter-conectado" checked>
+                <label for="manter-conectado">Manter conectado</label>
+            </div>
+            <button class="btn-auth btn-entrar" onclick="entrarComEmail()">Entrar</button>
+        </div>
+
+        <!-- ABA: CADASTRAR -->
+        <div id="box-cadastrar" class="auth-form" style="display: none;">
+            <div class="input-group">
+                <label>Nome Completo</label>
+                <input type="text" id="cadastro-nome" placeholder="Seu nome">
+            </div>
+            <div class="input-group">
+                <label>Data de Nascimento</label>
+                <input type="date" id="cadastro-data" onchange="validarDataNascimento()">
+                <span id="erro-data" class="erro-msg"></span>
+            </div>
+            <div class="input-group">
+                <label>E-mail</label>
+                <input type="email" id="cadastro-email" placeholder="Seu e-mail">
+            </div>
+            <div class="input-group">
+                <label>Senha</label>
+                <div class="password-wrapper">
+                    <input type="password" id="cadastro-senha" placeholder="Crie uma senha forte" oninput="validarForcaSenha()">
+                    <i class="fa-regular fa-eye toggle-password" onclick="togglePassword('cadastro-senha', this)"></i>
+                </div>
+                <ul class="password-requirements" id="senha-requisitos">
+                    <li id="req-length"><i class="fa-solid fa-xmark"></i> Mínimo de 8 caracteres</li>
+                    <li id="req-upper"><i class="fa-solid fa-xmark"></i> Uma letra maiúscula</li>
+                    <li id="req-lower"><i class="fa-solid fa-xmark"></i> Uma letra minúscula</li>
+                    <li id="req-number"><i class="fa-solid fa-xmark"></i> Um número</li>
+                    <li id="req-special"><i class="fa-solid fa-xmark"></i> Um caractere especial (@, #, !, etc.)</li>
+                </ul>
+            </div>
+            <div class="input-group">
+                <label>Confirmar Senha</label>
+                <div class="password-wrapper">
+                    <input type="password" id="cadastro-senha-confirma" placeholder="Digite a senha novamente">
+                    <i class="fa-regular fa-eye toggle-password" onclick="togglePassword('cadastro-senha-confirma', this)"></i>
+                </div>
+            </div>
+            <button class="btn-auth btn-entrar" onclick="criarContaEmail()">Criar Conta</button>
+        </div>
+
+        <div class="auth-divider"><span>ou</span></div>
+        
+        <button class="btn-auth btn-google" onclick="entrarComGoogle()">
+            <i class="fa-brands fa-google"></i> Continuar com o Google
+        </button>
     </div>
+</div>
 
     <!-- APLICATIVO PRINCIPAL (OCULTO ATÉ LOGAR) -->
     <div id="app-screen" style="display: none;">
@@ -74,11 +95,11 @@
         <div class="cloud-bar">
             <span><i class="fa-solid fa-user"></i> <strong id="user-display"></strong></span>
             <div class="cloud-actions">
-                <button class="btn-top" style="background: #e67e22;" onclick="sincronizarNuvem()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync</button>
-                <button class="btn-top" style="background: #e67e22;" onclick="baixarNuvem()"><i class="fa-solid fa-cloud-arrow-down"></i> Puxar Dados</button>
-                <button class="btn-top" style="background: transparent; border: 1px solid #ccc; color: #fff;" onclick="fazerLogout()">Sair</button>
+                <button class="btn-top btn-orange" onclick="sincronizarNuvem()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync</button>
+                <button class="btn-top btn-orange" onclick="baixarNuvem()"><i class="fa-solid fa-cloud-arrow-down"></i> Puxar Dados</button>
+                <button class="btn-top btn-outline" onclick="fazerLogout()">Sair</button>
+                <span id="cloud-status" style="margin-left: 10px; font-size: 0.85rem;"></span>
             </div>
-            <span id="cloud-status"></span>
         </div>
         
         <header>
@@ -96,6 +117,7 @@
             </nav>
         </header>
 
+        <main>
         <main>
             <!-- ABA: Receitas -->
             <section id="receitas" class="tab-content active">
