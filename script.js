@@ -918,7 +918,7 @@ function atualizarTelaReceitas() {
                 let unitTotalArredondado = parseFloat(rec.custos.unitario.toFixed(2));
                 let unitInsumo = parseFloat((rec.custos.insumos / rec.rendimento).toFixed(2));
                 let unitMaoObra = parseFloat((rec.custos.maoDeObra / rec.rendimento).toFixed(2));
-                let unitFixo = +(unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2);
+                let unitFixo = parseFloat(((rec.custos.fixo || 0) / rec.rendimento).toFixed(2));
                 
                 if(rec.isKit) { unitInsumo = unitTotalArredondado; unitMaoObra = 0; unitFixo = 0; }
 
@@ -1291,12 +1291,17 @@ function extrairCustosReceita(receitaId) {
     if (!rec || !rec.custos) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
 
     const rend = rec.rendimento || 1;
-    const unitTotalArredondado = parseFloat(((rec.custos.unitario || 0)).toFixed(2));
     const unitInsumo = parseFloat((((rec.custos.insumos || 0) / rend)).toFixed(2));
     const unitMaoObra = parseFloat((((rec.custos.maoDeObra || 0) / rend)).toFixed(2));
-    const unitFixo = parseFloat((unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2));
+    // CORREÇÃO: Divisão direta do custo fixo pelo rendimento
+    const unitFixo = parseFloat((((rec.custos.fixo || 0) / rend)).toFixed(2));
 
-    return { insumos: unitInsumo, fixos: unitFixo, maoDeObra: unitMaoObra, embalagens: 0 };
+    return { 
+        insumos: unitInsumo, 
+        fixos: unitFixo, 
+        maoDeObra: unitMaoObra, 
+        embalagens: 0 
+    };
 }
 
 function extrairCustosKit(kitId) {
@@ -1304,12 +1309,17 @@ function extrairCustosKit(kitId) {
     if (!kit || !kit.custos) return { insumos: 0, fixos: 0, maoDeObra: 0, embalagens: 0 };
     
     const rend = kit.rendimento || 1;
-    const unitTotalArredondado = parseFloat(((kit.custos.unitario || 0)).toFixed(2));
     const unitInsumo = parseFloat((((kit.custos.insumos || 0) / rend)).toFixed(2));
     const unitMaoObra = parseFloat((((kit.custos.maoDeObra || 0) / rend)).toFixed(2));
-    const unitFixo = parseFloat((unitTotalArredondado - unitInsumo - unitMaoObra).toFixed(2));
+    // CORREÇÃO: Divisão direta do custo fixo pelo rendimento
+    const unitFixo = parseFloat((((kit.custos.fixo || 0) / rend)).toFixed(2));
 
-    return { insumos: unitInsumo, fixos: unitFixo, maoDeObra: unitMaoObra, embalagens: 0 };
+    return {
+        insumos: unitInsumo,
+        fixos: unitFixo,
+        maoDeObra: unitMaoObra,
+        embalagens: 0
+    };
 }
 
 function formatarBRL(valor) {
